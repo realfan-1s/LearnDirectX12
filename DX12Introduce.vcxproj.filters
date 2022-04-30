@@ -31,6 +31,12 @@
     <Filter Include="源文件\Effect">
       <UniqueIdentifier>{38e2e855-7491-4225-94f3-b1c09b2f993d}</UniqueIdentifier>
     </Filter>
+    <Filter Include="头文件\Effect\PostProcess">
+      <UniqueIdentifier>{4d20196b-f451-4199-a78b-e10a5c569769}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\Effect\PostProcess">
+      <UniqueIdentifier>{a8472de7-14ab-4199-885a-89e8813ccc61}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="framework.h">
@@ -99,9 +105,6 @@
     <ClInclude Include="Effect\Shadow.h">
       <Filter>头文件\Effect</Filter>
     </ClInclude>
-    <ClInclude Include="Effect\Scene.h">
-      <Filter>头文件\Effect</Filter>
-    </ClInclude>
     <ClInclude Include="Expansion\Camera.h">
       <Filter>头文件\Expansion</Filter>
     </ClInclude>
@@ -113,6 +116,21 @@
     </ClInclude>
     <ClInclude Include="Effect\RenderToTexture.h">
       <Filter>头文件\Effect</Filter>
+    </ClInclude>
+    <ClInclude Include="Effect\GuassianBlur.h">
+      <Filter>头文件\Effect\PostProcess</Filter>
+    </ClInclude>
+    <ClInclude Include="Effect\PostProcessMgr.hpp">
+      <Filter>头文件\Effect\PostProcess</Filter>
+    </ClInclude>
+    <ClInclude Include="Base\Singleton.hpp">
+      <Filter>头文件\Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Expansion\Scene.h">
+      <Filter>头文件\Expansion</Filter>
+    </ClInclude>
+    <ClInclude Include="Effect\TexSizeChange.h">
+      <Filter>头文件\Effect\PostProcess</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -161,9 +179,6 @@
     <ClCompile Include="Effect\Shadow.cpp">
       <Filter>源文件\Effect</Filter>
     </ClCompile>
-    <ClCompile Include="Effect\Scene.cpp">
-      <Filter>源文件\Effect</Filter>
-    </ClCompile>
     <ClCompile Include="Effect\CubeMap.cpp">
       <Filter>源文件\Effect</Filter>
     </ClCompile>
@@ -172,6 +187,15 @@
     </ClCompile>
     <ClCompile Include="Effect\RenderToTexture.cpp">
       <Filter>源文件\Effect</Filter>
+    </ClCompile>
+    <ClCompile Include="Effect\GuassianBlur.cpp">
+      <Filter>源文件\Effect\PostProcess</Filter>
+    </ClCompile>
+    <ClCompile Include="Expansion\Scene.cpp">
+      <Filter>源文件\Expansion</Filter>
+    </ClCompile>
+    <ClCompile Include="Effect\TexSizeChange.cpp">
+      <Filter>源文件\Effect\PostProcess</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

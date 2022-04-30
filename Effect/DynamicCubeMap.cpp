@@ -9,8 +9,9 @@ Effect::DynamicCubeMap::DynamicCubeMap(ID3D12Device* _device, UINT _width, UINT 
 
 void Effect::DynamicCubeMap::CreateDescriptors(D3D12_CPU_DESCRIPTOR_HANDLE srvCpuStart, D3D12_GPU_DESCRIPTOR_HANDLE srvGpuStart, D3D12_CPU_DESCRIPTOR_HANDLE rtvCpuStart, UINT rtvOffset, UINT srvSize, UINT rtvSize)
 {
-	m_cpuSRV = CD3DX12_CPU_DESCRIPTOR_HANDLE(srvCpuStart, static_cast<INT>(m_srvIndex), srvSize);
-	m_gpuSRV = CD3DX12_GPU_DESCRIPTOR_HANDLE(srvGpuStart, static_cast<INT>(m_srvIndex), srvSize);
+	INT srvIndex = static_cast<UINT>(GetSrvIdx("CubeMap").value_or(0));
+	m_cpuSRV = CD3DX12_CPU_DESCRIPTOR_HANDLE(srvCpuStart, srvIndex, srvSize);
+	m_gpuSRV = CD3DX12_GPU_DESCRIPTOR_HANDLE(srvGpuStart, srvIndex, srvSize);
 	for (int i = 0 ; i < 6; ++i)
 	{
 		m_cpuRtv[i] = CD3DX12_CPU_DESCRIPTOR_HANDLE(rtvCpuStart, i + rtvOffset, rtvSize);
@@ -41,7 +42,7 @@ void Effect::DynamicCubeMap::Draw(ID3D12GraphicsCommandList* cmdList, const std:
 	cmdList->RSSetScissorRects(1, &m_scissorRect);
 	// 将立方体图资源转换为RENDER_TARGET
 	{
-		const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(m_resources.Get(), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_RENDER_TARGET);
+		const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(m_resource.Get(), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_RENDER_TARGET);
 		cmdList->ResourceBarrier(1, &trans);
 	}
 	for (UINT i = 0U; i < 6U; ++i)
@@ -56,12 +57,17 @@ void Effect::DynamicCubeMap::Draw(ID3D12GraphicsCommandList* cmdList, const std:
 	}
 
 	{
-		const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(m_resources.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_GENERIC_READ);
+		const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(m_resource.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_GENERIC_READ);
 		cmdList->ResourceBarrier(1, &trans);
 	}
 }
 
-void Effect::DynamicCubeMap::InitPSO(ID3D12Device* m_device, const D3D12_GRAPHICS_PIPELINE_STATE_DESC& templateDesc) {
+void Effect::DynamicCubeMap::InitShader(const std::wstring& binaryName) {
+	m_shader = make_unique<Shader>(default_shader, binaryName, initializer_list<D3D12_INPUT_ELEMENT_DESC>({ {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+		{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0} }));
+}
+
+void Effect::DynamicCubeMap::InitPSO(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& templateDesc) {
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC dynamicDesc = templateDesc;
 	dynamicDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 	dynamicDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
@@ -106,7 +112,7 @@ void Effect::DynamicCubeMap::CreateDescriptors() {
 	srvDesc.TextureCube.MipLevels = 1;
 	srvDesc.TextureCube.ResourceMinLODClamp = 0.0f;
 	// 创建整个立方体的srv
-	m_device->CreateShaderResourceView(m_resources.Get(), &srvDesc, m_cpuSRV);
+	m_device->CreateShaderResourceView(m_resource.Get(), &srvDesc, m_cpuSRV);
 	// 为每个立方体面创建RTV
 	for (int i = 0; i < 6; ++i)
 	{
@@ -119,7 +125,7 @@ void Effect::DynamicCubeMap::CreateDescriptors() {
 		rtvDesc.Texture2DArray.FirstArraySlice = i;
 		// 每个元素只创建一个视图
 		rtvDesc.Texture2DArray.ArraySize = 1;
-		m_device->CreateRenderTargetView(m_resources.Get(), &rtvDesc, m_cpuRtv[i]);
+		m_device->CreateRenderTargetView(m_resource.Get(), &rtvDesc, m_cpuRtv[i]);
 	}
 }
 
@@ -141,6 +147,6 @@ void Effect::DynamicCubeMap::CreateResources() {
 
 	{
 		const auto& properties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
-		ThrowIfFailed(m_device->CreateCommittedResource(&properties, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&m_resources)));
+		ThrowIfFailed(m_device->CreateCommittedResource(&properties, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&m_resource)));
 	}
 }

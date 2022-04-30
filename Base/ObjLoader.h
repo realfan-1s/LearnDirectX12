@@ -37,9 +37,9 @@ namespace Models
 	using Microsoft::WRL::ComPtr;
 	extern const std::string_view ModelPath;
 
-	class ObjLoader {
+	class ObjLoader : public Singleton<ObjLoader>{
 	public:
-		static ObjLoader& instance();
+		explicit ObjLoader(typename Singleton<ObjLoader>::Token);
 		ObjLoader(const ObjLoader&) = delete;
 		ObjLoader(ObjLoader&&) = delete;
 		ObjLoader& operator=(const ObjLoader&) = delete;
@@ -47,13 +47,12 @@ namespace Models
 
 		void Init(ID3D12Device* device, ID3D12CommandQueue* queue);
 		const Model* CreateObjFromFile(std::string_view fileName);
-		virtual ~ObjLoader() = default;
+		~ObjLoader() override = default;
 	private:
 		ComPtr<ID3D12Device>							m_device;
 		ComPtr<ID3D12CommandQueue>						m_commandQueue;
 		std::unordered_map<size_t, shared_ptr<Model>>	m_models;
 		std::unordered_map<size_t, unique_ptr<Texture>> m_textures;
 		void RegisterTex(const std::wstring& fileName);
-		ObjLoader();
 	};
 }

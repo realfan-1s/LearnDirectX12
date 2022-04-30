@@ -190,19 +190,23 @@
     <ClInclude Include="Base\Mesh.h" />
     <ClInclude Include="Base\ObjLoader.h" />
     <ClInclude Include="Base\Shader.h" />
+    <ClInclude Include="Base\Singleton.hpp" />
     <ClInclude Include="Base\ThreadPool.hpp" />
     <ClInclude Include="Base\Transform.h" />
     <ClInclude Include="Base\UploaderBuffer.hpp" />
     <ClInclude Include="Effect\CubeMap.h" />
     <ClInclude Include="Effect\DynamicCubeMap.h" />
+    <ClInclude Include="Effect\GuassianBlur.h" />
+    <ClInclude Include="Effect\PostProcessMgr.hpp" />
     <ClInclude Include="Effect\RenderToTexture.h" />
-    <ClInclude Include="Effect\Scene.h" />
     <ClInclude Include="Effect\Shadow.h" />
+    <ClInclude Include="Effect\TexSizeChange.h" />
     <ClInclude Include="Expansion\BoxApp.h" />
     <ClInclude Include="Expansion\Camera.h" />
     <ClInclude Include="Expansion\FrameResource.h" />
     <ClInclude Include="Expansion\Light.h" />
     <ClInclude Include="Expansion\Material.h" />
+    <ClInclude Include="Expansion\Scene.h" />
     <ClInclude Include="Expansion\Texture.h" />
     <ClInclude Include="Expansion\Vertex.h" />
     <ClInclude Include="framework.h" />
@@ -220,14 +224,16 @@
     <ClCompile Include="DX12Introduce.cpp" />
     <ClCompile Include="Effect\CubeMap.cpp" />
     <ClCompile Include="Effect\DynamicCubeMap.cpp" />
+    <ClCompile Include="Effect\GuassianBlur.cpp" />
     <ClCompile Include="Effect\RenderToTexture.cpp" />
-    <ClCompile Include="Effect\Scene.cpp" />
     <ClCompile Include="Effect\Shadow.cpp" />
+    <ClCompile Include="Effect\TexSizeChange.cpp" />
     <ClCompile Include="Expansion\BoxApp.cpp" />
     <ClCompile Include="Expansion\Camera.cpp" />
     <ClCompile Include="Expansion\FrameResource.cpp" />
     <ClCompile Include="Expansion\Light.cpp" />
     <ClCompile Include="Expansion\Material.cpp" />
+    <ClCompile Include="Expansion\Scene.cpp" />
     <ClCompile Include="Expansion\Texture.cpp" />
   </ItemGroup>
   <ItemGroup>

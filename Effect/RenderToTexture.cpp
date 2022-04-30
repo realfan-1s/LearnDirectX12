@@ -18,7 +18,7 @@ CD3DX12_GPU_DESCRIPTOR_HANDLE Effect::RenderToTexture::GetGpuSRV() const {
 }
 
 ID3D12Resource* Effect::RenderToTexture::GetResource() const {
-	return m_resources.Get();
+	return m_resource.Get();
 }
 
 D3D12_VIEWPORT Effect::RenderToTexture::GetViewPort() const {
@@ -34,8 +34,9 @@ void Effect::RenderToTexture::OnResize(UINT newWidth, UINT newHeight) {
 	{
 		m_width = newWidth;
 		m_height = newHeight;
-		CreateDescriptors();
 		CreateResources();
+		CreateDescriptors();
+		m_dirtyFlag = true;
 	}
 }
 
@@ -70,13 +71,8 @@ void Effect::RenderToTexture::InitDepthAndStencil(ID3D12GraphicsCommandList* cmd
 	}
 }
 
-void Effect::RenderToTexture::InitShader(const std::wstring& binaryName) {
-	m_shader = make_unique<Shader>(default_shader, binaryName, initializer_list<D3D12_INPUT_ELEMENT_DESC>({ {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-		{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0} }));
-}
-
 void Effect::RenderToTexture::InitSRV(std::string_view name) {
-	m_srvIndex = TextureMgr::instance().RegisterRenderToTexture(name);
+	TextureMgr::instance().RegisterRenderToTexture(name);
 }
 
 void Effect::RenderToTexture::InitDSV(CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandler)
@@ -89,7 +85,7 @@ ID3D12PipelineState* Effect::RenderToTexture::GetPSO() const
 	return m_pso.Get();
 }
 
-UINT Effect::RenderToTexture::GetSrvIdx() const
+std::optional<UINT> Effect::RenderToTexture::GetSrvIdx(std::string_view name)
 {
-	return m_srvIndex;
+	return TextureMgr::instance().GetRegisterType(name);
 }

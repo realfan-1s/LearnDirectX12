@@ -20,7 +20,7 @@ void Effect::Shadow::CreateDescriptors()
 	srvDesc.Texture2D.MipLevels = 1;
 	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 	srvDesc.Texture2D.PlaneSlice = 0;
-	m_device->CreateShaderResourceView(m_resources.Get(), &srvDesc, m_cpuSRV);
+	m_device->CreateShaderResourceView(m_resource.Get(), &srvDesc, m_cpuSRV);
 
 	// 创建DSV让shader能够渲染到shadow map上
 	D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc{};
@@ -28,7 +28,7 @@ void Effect::Shadow::CreateDescriptors()
 	dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
 	dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
 	dsvDesc.Texture2D.MipSlice = 0;
-	m_device->CreateDepthStencilView(m_resources.Get(), &dsvDesc, m_cpuDSV);
+	m_device->CreateDepthStencilView(m_resource.Get(), &dsvDesc, m_cpuDSV);
 }
 
 void Effect::Shadow::CreateResources()
@@ -55,7 +55,7 @@ void Effect::Shadow::CreateResources()
 
 	{
 		const auto& properties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
-		ThrowIfFailed(m_device->CreateCommittedResource(&properties, D3D12_HEAP_FLAG_NONE, &shadowDesc, D3D12_RESOURCE_STATE_GENERIC_READ, &shadowClear, IID_PPV_ARGS(m_resources.GetAddressOf())));
+		ThrowIfFailed(m_device->CreateCommittedResource(&properties, D3D12_HEAP_FLAG_NONE, &shadowDesc, D3D12_RESOURCE_STATE_GENERIC_READ, &shadowClear, IID_PPV_ARGS(m_resource.GetAddressOf())));
 	}
 }
 
@@ -88,7 +88,7 @@ void Effect::Shadow::Draw(ID3D12GraphicsCommandList* cmdList, const std::functio
 	cmdList->RSSetScissorRects(1, &m_scissorRect);
 	// 为深度写入模式
 	{
-		const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(m_resources.Get(), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+		const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(m_resource.Get(), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_DEPTH_WRITE);
 		cmdList->ResourceBarrier(1, &trans);
 	}
 	// 清除深度缓冲区和后台缓冲区
@@ -100,12 +100,18 @@ void Effect::Shadow::Draw(ID3D12GraphicsCommandList* cmdList, const std::functio
 
 	// 结束深度写入状态
 	{
-		const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(m_resources.Get(), D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_GENERIC_READ);
+		const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(m_resource.Get(), D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_GENERIC_READ);
 		cmdList->ResourceBarrier(1, &trans);
 	}
 }
 
-void Effect::Shadow::InitPSO(ID3D12Device* m_device, const D3D12_GRAPHICS_PIPELINE_STATE_DESC& templateDesc) {
+void Effect::Shadow::InitShader(const std::wstring& binaryName) {
+	m_shader = make_unique<Shader>(default_shader, binaryName, initializer_list<D3D12_INPUT_ELEMENT_DESC>({ {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+		{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0} }));
+}
+
+
+void Effect::Shadow::InitPSO(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& templateDesc) {
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC shadowDesc = templateDesc;
 	// 避免自遮挡的阴影偏移依赖于实际场景
 	shadowDesc.RasterizerState.DepthBias = 100000;
@@ -131,8 +137,9 @@ const XMMATRIX& Effect::Shadow::GetShadowTransformXM() const
 }
 
 void Effect::Shadow::CreateDescriptors(D3D12_CPU_DESCRIPTOR_HANDLE srvCpuStart, D3D12_GPU_DESCRIPTOR_HANDLE srvGpuStart, D3D12_CPU_DESCRIPTOR_HANDLE dsvCpuStart, UINT srvSize, UINT dsvSize, UINT dsvOffset) {
-	m_cpuSRV = CD3DX12_CPU_DESCRIPTOR_HANDLE(srvCpuStart, m_srvIndex, srvSize);
-	m_gpuSRV = CD3DX12_GPU_DESCRIPTOR_HANDLE(srvGpuStart, m_srvIndex, srvSize);
+	INT srvIndex = static_cast<INT>(GetSrvIdx("ShadowMap").value_or(0));
+	m_cpuSRV = CD3DX12_CPU_DESCRIPTOR_HANDLE(srvCpuStart, srvIndex, srvSize);
+	m_gpuSRV = CD3DX12_GPU_DESCRIPTOR_HANDLE(srvGpuStart, srvIndex, srvSize);
 	m_cpuDSV = CD3DX12_CPU_DESCRIPTOR_HANDLE(dsvCpuStart, dsvOffset, dsvSize);
 	CreateDescriptors();
 }

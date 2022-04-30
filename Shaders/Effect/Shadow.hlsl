@@ -1,7 +1,7 @@
 #ifndef SHADOW
 #define SHADOW
 
-#include "../Shading/GameBase.hlsl"
+#include "../Shading/Gamebase.hlsl"
 
 struct input {
     float3 vertex : POSITION;
@@ -25,7 +25,7 @@ v2f Vert(input v)
 void Frag(v2f o)
 {
     // 除非需要alpha几何裁剪，否则无需执行此操作
-#ifdef ALPHA_TEST
+#ifdef ALPHA
     float diffuseAlpha = g_diffuse.Sample(anisotropicWrap, o.uv).a;
     clip(diffuseAlpha - 0.01f);
 #endif

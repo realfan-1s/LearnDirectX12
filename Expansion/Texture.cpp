@@ -26,12 +26,6 @@ void Texture::CreateDDSTexture(ID3D12Device* currDevice, ID3D12CommandQueue* cmd
 	uploadFinished.wait();
 }
 
-TextureMgr& TextureMgr::instance()
-{
-	static std::unique_ptr<TextureMgr> instance(new TextureMgr());
-	return *instance;
-}
-
 void TextureMgr::Init(ID3D12Device* currDevice, ID3D12CommandQueue* cmdQueue)
 {
 	m_device = currDevice;
@@ -81,15 +75,14 @@ void TextureMgr::GenerateSRVHeap()
 	}
 }
 
-UINT TextureMgr::RegisterRenderToTexture(std::string_view name)
+void TextureMgr::RegisterRenderToTexture(std::string_view name)
 {
 	HashID id = StringToID(name);
 	if (m_textureID.count(id))
 	{
-		return m_textureID[id];
+		return;
 	}
 	m_textureID[id] = numDescriptor++;
-	return m_textureID[id];
 }
 
 ID3D12DescriptorHeap* TextureMgr::GetSRVDescriptorHeap() const
@@ -111,3 +104,7 @@ size_t TextureMgr::Size() const
 }
 
 TextureMgr::~TextureMgr() = default;
+
+TextureMgr::TextureMgr(Singleton<TextureMgr>::Token) : Singleton<TextureMgr>()
+{
+}

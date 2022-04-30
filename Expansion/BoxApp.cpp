@@ -56,6 +56,7 @@ BoxApp::~BoxApp()
 void BoxApp::Resize()
 {
 	D3DApp_Template::Resize(*this);
+	m_blur->OnResize(m_clientWidth, m_clientHeight);
 }
 
 void BoxApp::Update(const GameTimer& timer)
@@ -150,13 +151,13 @@ void BoxApp::DrawScene(const GameTimer& timer)
 	//passCBVHandler.Offset(passIndex, m_cbvUavDescriptorSize);
 	//m_commandList->SetGraphicsRootDescriptorTable(1, passCBVHandler);
 	auto shadowSRVHandler = CD3DX12_GPU_DESCRIPTOR_HANDLE(TextureMgr::instance().GetSRVDescriptorHeap()->GetGPUDescriptorHandleForHeapStart());
-	shadowSRVHandler.Offset(m_shadow->GetSrvIdx(), m_cbvUavDescriptorSize);
+	shadowSRVHandler.Offset(m_shadow->GetSrvIdx("ShadowMap").value_or(0), m_cbvUavDescriptorSize);
 	m_commandList->SetGraphicsRootDescriptorTable(5, shadowSRVHandler);
 
 	/*
 	if (!m_renderItemLayers[static_cast<UINT>(BlendType::reflective)].empty())
 	{
-		// 对于需要离屏渲染的物体保修但对设置两个常量缓冲区，一个存储物体镜像另一个则存储光照镜像
+		// 对于需要离屏渲染的物体但对设置两个常量缓冲区，一个存储物体镜像另一个则存储光照镜像
 		auto passCB = m_currFrameResource->m_passCBuffer->GetResource();
 		constexpr UINT currPassByteSize = D3DUtil::AlignsConstantBuffer(sizeof(PassConstant));
 		m_commandList->SetGraphicsRootConstantBufferView(0, passCB->GetGPUVirtualAddress() + currPassByteSize);
@@ -197,13 +198,8 @@ void BoxApp::DrawScene(const GameTimer& timer)
 	DrawRenderItems(m_commandList.Get(), m_renderItemLayers[static_cast<UINT>(BlendType::skybox)]);
 
 	// 按照资源的用途指示其状态的转变，将渲染目标状态转换为呈现状态
-	{
-		const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(
-			GetCurrentBackBuffer(),
-			D3D12_RESOURCE_STATE_RENDER_TARGET,
-			D3D12_RESOURCE_STATE_PRESENT);
-		m_commandList->ResourceBarrier(1, &trans);
-	}
+	DrawPostProcess(m_commandList.Get());
+
 	// 完成命令的记录
 	ThrowIfFailed(m_commandList->Close());
 	// 将命令队列中添加欲执行的命令列表
@@ -282,6 +278,7 @@ void BoxApp::CreateOffScreenRendering() {
 	m_shadow = std::make_unique<Effect::Shadow>(m_d3dDevice.Get(), 2048U, DXGI_FORMAT_R24G8_TYPELESS);
 	m_dynamicCube = std::make_unique<Effect::DynamicCubeMap>(m_d3dDevice.Get(), 1024U, 1024U, DXGI_FORMAT_R8G8B8A8_UNORM);
 	m_dynamicCube->InitCamera(0.0f, 2.0f, 0.0f);
+	m_blur = std::make_unique<Effect::GaussianBlur>(m_d3dDevice.Get(), m_clientWidth, m_clientHeight, DXGI_FORMAT_R8G8B8A8_UNORM, 2U);
 }
 
 void BoxApp::UpdateLUT(const GameTimer& timer)
@@ -374,8 +371,8 @@ void BoxApp::CreateDescriptorHeaps()
 	UINT rtvOffset = m_swapBufferCount;
 	m_dynamicCube->CreateDescriptors(cpuSrvStart, gpuSrvStart, cpuRtvStart, rtvOffset, m_cbvUavDescriptorSize, m_rtvDescriptorSize);
 	m_dynamicCube->InitDepthAndStencil(m_commandList.Get());
-	// TODO: shadow Descriptor heaps
 	m_shadow->CreateDescriptors(cpuSrvStart, gpuSrvStart, dsvCpuStart, m_cbvUavDescriptorSize, m_dsvDescriptorSize, 2);
+	m_blur->CreateDescriptors(cpuSrvStart, gpuSrvStart, m_cbvUavDescriptorSize);
 }
 
 // 根签名：执行绘制命令之前，应用成程序将绑定到流水线上的资源映射到对应的输入寄存器。
@@ -410,11 +407,13 @@ void BoxApp::CreateRootSignature()
 	ComPtr<ID3DBlob> error{ nullptr };
 	HRESULT res = D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, serialRootSig.GetAddressOf(), error.GetAddressOf());
 	if (error) {
-		::OutputDebugStringA(static_cast<const char*>(error->GetBufferPointer()));
+		OutputDebugStringA(static_cast<const char*>(error->GetBufferPointer()));
 	}
 	ThrowIfFailed(res);
 	m_d3dDevice->CreateRootSignature(0, serialRootSig->GetBufferPointer(), 
 		serialRootSig->GetBufferSize(), IID_PPV_ARGS(&m_rootSignature));
+
+	m_blur->InitRootSignature();
 }
 
 void BoxApp::CreateShadersAndInput()
@@ -438,6 +437,7 @@ void BoxApp::CreateShadersAndInput()
 	//	{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0} }));
 	m_shadow->InitShader(L"Shaders\\Shadow");
 	m_dynamicCube->InitShader(L"Shaders\\Skybox");
+	m_blur->InitShader(L"Shaders\\Blur_Horizontal", L"Shaders\\Blur_Vertical");
 }
 
 void BoxApp::CreateGeometry()
@@ -635,8 +635,9 @@ void BoxApp::CreatePSO()
 	//}
 	
 	m_skybox->InitPSO(m_d3dDevice.Get(), opaqueDesc);
-	m_dynamicCube->InitPSO(m_d3dDevice.Get(), opaqueDesc);
-	m_shadow->InitPSO(m_d3dDevice.Get(), opaqueDesc);
+	m_dynamicCube->InitPSO(opaqueDesc);
+	m_shadow->InitPSO(opaqueDesc);
+	m_blur->InitPSO(opaqueDesc);
 }
 
 void BoxApp::CreateFrameResources()
@@ -740,6 +741,7 @@ void BoxApp::CreateTextures()
 	m_skybox->InitStaticTex("Skybox", TexturePath + L"Skybox/grasscube1024.dds");
 	m_dynamicCube->InitSRV("CubeMap");
 	m_shadow->InitSRV("ShadowMap");
+	m_blur->InitTexture();
 }
 
 void BoxApp::CreateMaterials()
@@ -815,6 +817,7 @@ void BoxApp::UpdateOffScreen(const GameTimer& timer)
 		auto passCB = m_currFrameResource->m_passCBuffer.get();
 		passCB->Copy(7, constant);
 	});
+	m_blur->Update(timer, [](UINT offset, auto& constant){});
 }
 
 //void BoxApp::UpdateStencilFrame(const GameTimer& timer)
@@ -858,5 +861,35 @@ void BoxApp::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const vector<Re
 
 		//cmdList->SetGraphicsRootDescriptorTable(0, cbvHandler);
 		cmdList->DrawIndexedInstanced(item->eboCount, 1, item->eboStart, item->vboStart, 0);
+	}
+}
+
+void BoxApp::DrawPostProcess(ID3D12GraphicsCommandList* cmdList) {
+	// 将后台缓冲区的数据拷贝到显存
+	// 执行完毕后将数据从默认缓冲区拷贝到内存缓冲区中
+	m_blur->Draw(cmdList, [&](UINT) {
+		{
+			const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(GetCurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE);
+			cmdList->ResourceBarrier(1, &trans);
+		}
+		{
+			const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(m_blur->GetResourceDownSampler(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST);
+			cmdList->ResourceBarrier(1, &trans);
+		}
+		cmdList->CopyResource(m_blur->GetResourceDownSampler(), GetCurrentBackBuffer());
+		{
+			const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(m_blur->GetResourceDownSampler(),D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ);
+			cmdList->ResourceBarrier(1, &trans);
+		}
+	});
+	
+	{
+		const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(GetCurrentBackBuffer(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
+		cmdList->ResourceBarrier(1, &trans);
+	}
+	cmdList->CopyResource(GetCurrentBackBuffer(), m_blur->GetResourceUpSampler());
+	{
+		const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(GetCurrentBackBuffer(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PRESENT);
+		cmdList->ResourceBarrier(1, &trans);
 	}
 }

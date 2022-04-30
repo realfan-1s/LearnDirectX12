@@ -16,7 +16,8 @@ public:
 	void CreateDescriptors(D3D12_CPU_DESCRIPTOR_HANDLE srvCpuStart, D3D12_GPU_DESCRIPTOR_HANDLE srvGpuStart, D3D12_CPU_DESCRIPTOR_HANDLE rtvCpuStart, UINT rtvOffset, UINT srvSize, UINT rtvSize);
 	void Update(const GameTimer& timer, const std::function<void(UINT, PassConstant&)>& updateFunc) override;
 	void Draw(ID3D12GraphicsCommandList* cmdList, const std::function<void(UINT)>& drawFunc) const override;
-	void InitPSO(ID3D12Device* m_device, const D3D12_GRAPHICS_PIPELINE_STATE_DESC& templateDesc) override;
+	void InitShader(const std::wstring& binaryName);
+	void InitPSO(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& templateDesc) override;
 	void InitCamera(float x, float y, float z);
 protected:
 	void CreateDescriptors() override;
@@ -24,5 +25,6 @@ protected:
 private:
 	CD3DX12_CPU_DESCRIPTOR_HANDLE	m_cpuRtv[6];
 	FirstPersonCamera				m_cams[6];
+	std::unique_ptr<Shader>			m_shader;
 };
 }

@@ -10,12 +10,6 @@ using namespace Assimp;
 // ReSharper disable once CppVariableCanBeMadeConstexpr
 const std::string_view Models::ModelPath = "Resources/Models/";
 
-ObjLoader& ObjLoader::instance()
-{
-	static unique_ptr<ObjLoader> instance(new ObjLoader());
-	return *instance;
-}
-
 void ObjLoader::Init(ID3D12Device* device, ID3D12CommandQueue* queue)
 {
 	m_device = device;
@@ -107,8 +101,10 @@ const Model* ObjLoader::CreateObjFromFile(std::string_view fileName)
 	return nullptr;
 }
 
-void ObjLoader::RegisterTex(const std::wstring& fileName)
+Models::ObjLoader::ObjLoader(Singleton<ObjLoader>::Token) : Singleton<Models::ObjLoader>()
 {
 }
 
-ObjLoader::ObjLoader() = default;
+void ObjLoader::RegisterTex(const std::wstring& fileName)
+{
+}

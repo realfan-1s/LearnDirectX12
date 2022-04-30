@@ -221,12 +221,12 @@ float3 ComputeLighting(Light lights[MAX_LIGHTS], MaterialData mat, float3 pos, f
 
 float3 ACESToneMapping(float3 color)
 {
-       const float A = 2.51f;
-       const float B = 0.03f;
-       const float C = 2.43f;
-       const float D = 0.59f;
-       const float E = 0.14f;
-       return (color * (A * color + B)) / (color * (C * color + D) + E);
+    const float A = 2.51f;
+    const float B = 0.03f;
+    const float C = 2.43f;
+    const float D = 0.59f;
+    const float E = 0.14f;
+    return (color * (A * color + B)) / (color * (C * color + D) + E);
 }
 
 float3 CalcByTBN(float3 normSample, float3 normalW, float3 tangentW)

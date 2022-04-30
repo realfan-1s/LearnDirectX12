@@ -3,7 +3,6 @@
 #include <DirectXMath.h>
 #include <random>
 #include <windows.h>
-#include <algorithm>
 
 using namespace DirectX;
 
@@ -21,6 +20,8 @@ struct Register<XMFLOAT4> : std::true_type{};
 
 namespace MathHelper
 {
+inline constexpr UINT maxBlurRadius = 7;
+
 class MathHelper {
 public:
 	static float Rand()
@@ -177,7 +178,47 @@ public:
 			ans[i] = XMFLOAT2{ LowDiscrepancySequence(i & 1023, 2), LowDiscrepancySequence(i & 1023, 3) };
 		}
 		return ans;
-	} 
+	}
+	template <UINT T>
+	static std::array<float, T> CalcGaussian()
+	{
+		std::array<float, T> ans;
+		constexpr UINT half = T - 1;
+		static_assert(T <= maxBlurRadius && T > 0);
+		float weightSum = 0.0f;
+		constexpr float simga = (half) * (half) * 0.5f;
+		std::array<float, 2 * T - 1> weight;
+		for (UINT i = 0; i < 2 * T - 1; ++i)
+		{
+			float x = static_cast<float>(i) - static_cast<float>(half);
+			weight[i] = std::exp(-x * x / simga);
+			weightSum += weight[i];
+		}
+
+		for (size_t i = 0; i < T; ++i)
+		{
+			ans[i] = weight[half - i] / weightSum;
+		}
+		return ans;
+	}
+	template <UINT T>
+	static auto CalcBilinearGaussian() -> std::tuple<std::array<float, T / 2 + 1>, std::array<float, T / 2 + 1>>
+	{
+		auto total = CalcGaussian<T>();
+		std::array<float, T / 2 + 1> weights;
+		std::array<float, T / 2 + 1> offsets;
+		weights[0] = total[0];
+		offsets[0] = 0.0f;
+
+		for (UINT i = 1; i < weights.size(); ++i)
+		{
+			weights[i] = total[2 * i] + total[2 * i - 1];
+			float num = total[2 * i] * (2.0f * i) + total[2 * i - 1] * (2.0f * i - 1.0f);
+			offsets[i] = num / weights[i];
+		}
+
+		return { weights, offsets };
+	}
 };
 }
 

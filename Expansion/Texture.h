@@ -6,6 +6,7 @@
 #include <memory>
 #include <optional>
 #include <unordered_map>
+#include "Singleton.hpp"
 
 using Microsoft::WRL::ComPtr;
 extern const std::wstring TexturePath;
@@ -28,10 +29,9 @@ private:
 	void CreateDDSTexture(ID3D12Device* currDevice, ID3D12CommandQueue* cmdQueue);
 };
 
-class TextureMgr
+class TextureMgr : public Singleton<TextureMgr>
 {
 public:
-	static TextureMgr& instance();
 	TextureMgr(const TextureMgr&) = delete;
 	TextureMgr(TextureMgr&&) = delete;
 	TextureMgr& operator=(const TextureMgr&) = delete;
@@ -39,13 +39,13 @@ public:
 	void Init(ID3D12Device* __restrict currDevice, ID3D12CommandQueue* __restrict cmdQueue);
 	bool InsertDDSTexture(std::string_view name, const std::wstring& fileName);
 	void GenerateSRVHeap();
-	UINT RegisterRenderToTexture(std::string_view name);
+	void RegisterRenderToTexture(std::string_view name);
 	ID3D12DescriptorHeap* GetSRVDescriptorHeap() const;
 	std::optional<UINT> GetRegisterType(std::string_view name);
 	size_t Size() const;
 	virtual ~TextureMgr();
+	explicit TextureMgr(typename Singleton<TextureMgr>::Token);
 private:
-	TextureMgr() = default;
 	ComPtr<ID3D12Device>									m_device;
 	ComPtr<ID3D12CommandQueue>								m_commandQueue;
 	ComPtr<ID3D12DescriptorHeap>							m_srvHeap{ nullptr };

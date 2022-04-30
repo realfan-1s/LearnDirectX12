@@ -26,8 +26,8 @@ v2f Vert(Input v) {
 }
 
 float4 Frag(v2f o) : SV_TARGET {
-    float3 skybox = g_skybox.Sample(anisotropicWrap, o.frag).xyz;
-    float3 ans = ACESToneMapping(skybox);
+    float3 ans = g_skybox.Sample(anisotropicWrap, o.frag).xyz;
+    ans = ACESToneMapping(ans);
     return float4(ans, 1.0f);
 }
 

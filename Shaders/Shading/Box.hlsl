@@ -39,14 +39,14 @@ float4 Frag(v2f o) : SV_TARGET
 {
     Material mat = cbMaterial[cbPerobject.g_matIndex];
     float4 sampleCol = g_modelTexture[mat.diffuseIndex].Sample(anisotropicWrap, o.uv);
-#ifdef ALPHA_TEST
+#ifdef ALPHA
     clip(sampleCol.a - 0.1f);
 #endif
     float3 albedo = sampleCol.xyz;
     float3 ambient = albedo * cbPass.ambient;
 
     /*
-    * º”‘ÿ∑®œﬂÃ˘Õº
+    * TBN
     */
     float3 normalSample = g_modelTexture[mat.normalIndex].Sample(anisotropicWrap, o.uv).xyz;
     float3 normalDir = CalcByTBN(normalSample, o.normal, o.tangent);
