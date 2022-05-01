@@ -1,20 +1,29 @@
 #include "Mesh.h"
 
-void RenderItem::Update(const GameTimer& timer, UploaderBuffer<ConstantBuffer>* currObjectCB)
+void RenderItem::Update(const GameTimer& timer, UploaderBuffer<ObjectInstance>* currObjectCB, UINT offset)
 {
+	instanceStart = offset;
 	// 只有这些变量发生了改变才会更新常量缓冲区中的数据，而且会对每个之资源都进行更新
-	if (dirtyFlag > 0)
+	for (UINT i = 0; i < transformPack.size(); ++i)
 	{
 		XMMATRIX model = Transform::GetModelMatrixXM(
-				m_transform->m_scale, 
-				m_transform->m_rotation,
-				m_transform->m_position);
-		ConstantBuffer objectConstant;
-		XMStoreFloat4x4(&objectConstant.model_gpu, std::move(XMMatrixTranspose(model)));
-		objectConstant.matIndex_gpu = m_material->materialCBIndex;
-		currObjectCB->Copy(m_constantBufferIndex, objectConstant);
-		dirtyFlag--;
+			transformPack[i]->m_scale,
+			transformPack[i]->m_rotation,
+			transformPack[i]->m_position);
+		ObjectInstance instanceData;
+		XMStoreFloat4x4(&instanceData.model_gpu, std::move(XMMatrixTranspose(model)));
+		instanceData.matIndex_gpu = m_matIndex;
+		currObjectCB->Copy(i + offset, instanceData);
 	}
+}
+
+UINT RenderItem::GetInstanceSize() const {
+	return static_cast<UINT>(transformPack.size());
+}
+
+UINT RenderItem::GetInstanceCount()
+{
+	return instanceCount;
 }
 
 D3D12_VERTEX_BUFFER_VIEW Mesh::GetVBOView() const

@@ -17,7 +17,7 @@ public:
 	FrameResource(FrameResource&&) = default;
 	FrameResource& operator=(FrameResource&&) = default;
 	~FrameResource() = default;
-	std::unique_ptr<UploaderBuffer<ConstantBuffer>>		m_uploadCBuffer{ nullptr };
+	std::unique_ptr<UploaderBuffer<ObjectInstance>>		m_uploadCBuffer{ nullptr };
 	std::unique_ptr<UploaderBuffer<PassConstant>>		m_passCBuffer{ nullptr };
 	std::unique_ptr<UploaderBuffer<MaterialConstant>>	m_materialCBuffer{ nullptr };
 	// GPU执行完命令分配器相关的命令之前，就不能重置命令分配器因此每一帧都需要自己的命令分配器

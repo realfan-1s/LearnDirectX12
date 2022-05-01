@@ -35,7 +35,7 @@ struct MaterialData {
     float metalness;
 };
 
-struct ObjectConstant // 将常量缓冲区中的元素定义在一个单独的结构体中，再用此结构体创建常量缓冲区
+struct ObjectInstance // 将常量缓冲区中的元素定义在一个单独的结构体中，再用此结构体创建常量缓冲区
 {
     float4x4    g_model;
     float4x4    g_texTranform;
@@ -77,9 +77,10 @@ Texture2D g_shadow : register(t1);
 Texture2D g_modelTexture[256] : register(t2);
 TextureCube g_pointShadow : register(t3);
 ConstantBuffer<WorldConstant> cbPass : register(b0);
-ConstantBuffer<ObjectConstant> cbPerobject : register(b1);
+// 为所有的实例都创建一个存有实例的结构化缓冲区并绑定相应的数据，通过SV_InstanceID作为索引查找
 // 将此结构化缓冲区放置在space1中，纹理数组不会与之重叠，因为这个缓冲区位于space1位置
 StructuredBuffer<Material> cbMaterial : register(t0, space1);
+StructuredBuffer<ObjectInstance> instanceData : register(t1, space1);
 
 float GGX(float ndoth, float r2);
 float Geometry(float ndotv, float ndotl, float r2);

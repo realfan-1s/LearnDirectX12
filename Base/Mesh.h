@@ -11,6 +11,7 @@
 #include "Material.h"
 #include "Vertex.h"
 #include "Transform.h"
+#include <iostream>
 
 class Mesh;
 using namespace std;
@@ -18,20 +19,69 @@ using Microsoft::WRL::ComPtr;
 
 struct RenderItem
 {
-	RenderItem() : m_transform(make_shared<Transform>()) {}
-	std::shared_ptr<Transform>	m_transform{ nullptr };
-	D3D12_PRIMITIVE_TOPOLOGY	m_topologyType{ D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST };
+private:
+	inline static UINT instanceCount = 0;
+public:
+	RenderItem() = default;
+	std::vector<std::shared_ptr<Transform>>	transformPack;
+	D3D12_PRIMITIVE_TOPOLOGY				m_topologyType{ D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST };
 	// 脏标识来表示物体相关数据已经发生改变，需要更行对应的常量缓冲区
-	int							dirtyFlag{ frameResourcesCount };
 	// 索引指向的GPU常量缓冲区对应于当前渲染项的物体常量缓冲区
-	UINT						m_constantBufferIndex = -1;
-	Mesh*						m_mesh{ nullptr};
-	MaterialData*				m_material{ nullptr };
+	Mesh*									m_mesh{ nullptr};
+	UINT									m_matIndex;
+	BlendType								m_type;
 	// DrawIndexedInstanced的方法参数
-	UINT						eboCount{ 0 };
-	UINT						eboStart{ 0 };
-	int							vboStart{ 0 };
-	void Update(const GameTimer& timer, UploaderBuffer<ConstantBuffer>* currObjectCB);
+	UINT									instanceStart{ 0 };
+	UINT									eboCount{ 0 };
+	UINT									eboStart{ 0 };
+	int										vboStart{ 0 };
+	void Update(const GameTimer& timer, UploaderBuffer<ObjectInstance>* currObjectCB, UINT offset);
+	template <typename... Args, std::enable_if_t<sizeof...(Args) <= 3 && (is_same_v<decltype(Transform::m_scale), Args>, ...)>* = nullptr>
+	void EmplaceBack(Args&&... args)
+	{
+		instanceCount++;
+		auto& form = transformPack.emplace_back(std::make_shared<Transform>());
+		auto list = std::make_tuple(std::forward<Args>(args)...);
+		if constexpr (sizeof...(args) == 1)
+		{
+			form->m_position = std::get<0>(list);
+		} else if constexpr (sizeof...(args) == 2)
+		{
+			form->m_position = std::get<0>(list);
+			form->m_scale = std::get<1>(list);
+		} else if constexpr (sizeof...(args) == 3)
+		{
+			form->m_position = std::get<0>(list);
+			form->m_scale = std::get<1>(list);
+			form->m_rotation = std::get<2>(list);
+		}
+	}
+	void EmplaceBack()
+	{
+		instanceCount++;
+		transformPack.emplace_back(std::make_shared<Transform>());
+	}
+	template <typename... Args, std::enable_if_t<sizeof...(Args) <= 3 && (is_same_v<decltype(Transform::m_scale), Args>, ...)>* = nullptr>
+	void SetParameters(UINT pos, Args&&... args)
+	{
+		const auto& form = transformPack[pos];
+		auto list = std::make_tuple(std::forward<Args>(args)...);
+		if constexpr (sizeof...(args) == 1)
+		{
+			form->m_position = std::get<0>(list);
+		} else if constexpr (sizeof...(args) == 2)
+		{
+			form->m_position = std::get<0>(list);
+			form->m_scale = std::get<1>(list);
+		} else if constexpr (sizeof...(args) == 3)
+		{
+			form->m_position = std::get<0>(list);
+			form->m_scale = std::get<1>(list);
+			form->m_rotation = std::get<2>(list);
+		}
+	}
+	UINT GetInstanceSize() const;
+	static UINT GetInstanceCount();
 };
 
 struct Submesh

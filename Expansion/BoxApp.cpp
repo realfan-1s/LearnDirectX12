@@ -82,7 +82,7 @@ void BoxApp::Update(const GameTimer& timer)
 		XMStoreFloat3(&const_cast<XMFLOAT3&>(m_lights[0]->GetData().direction), lightDir);
 	}
 
-	UpdateConstantBuffer(timer);
+	UpdateObjectInstance(timer);
 	UpdateMaterialConstant(timer);
 	UpdatePassConstant(timer);
 	UpdateOffScreen(timer);
@@ -392,7 +392,7 @@ void BoxApp::CreateRootSignature()
 	shadowSRV.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 1, 0);
 	CD3DX12_ROOT_PARAMETER parameters[6]{};
 	parameters[0].InitAsConstantBufferView(0); // 渲染过程的CBV
-	parameters[1].InitAsConstantBufferView(1); // 物体的CBV
+	parameters[1].InitAsShaderResourceView(1, 1); // 物体的CBV
 	parameters[2].InitAsShaderResourceView(0, 1); // 物体材质的结构化缓冲区
 	parameters[3].InitAsDescriptorTable(1, &texSRV, D3D12_SHADER_VISIBILITY_PIXEL); // 所有纹理的位置
 	parameters[4].InitAsDescriptorTable(1, &skyboxSRV, D3D12_SHADER_VISIBILITY_PIXEL); // 天空盒的位置
@@ -644,21 +644,17 @@ void BoxApp::CreateFrameResources()
 {
 	for (auto i = 0; i < frameResourcesCount; ++i)
 	{
-		m_frame_cBuffer.emplace_back(std::make_unique<FrameResource>(m_d3dDevice.Get(), 8, static_cast<UINT>(m_renderItems.size()), static_cast<UINT>(m_material->m_data.size())));
+		m_frame_cBuffer.emplace_back(std::make_unique<FrameResource>(m_d3dDevice.Get(), 8, RenderItem::GetInstanceCount(), static_cast<UINT>(m_material->m_data.size())));
 	}
 }
 
 void BoxApp::CreateRenderItems()
 {
-	vector<unique_ptr<RenderItem>> reflectItems;
-	int objCBIndex = 0;
-	
 	auto box = std::make_unique<RenderItem>();
-	box->m_transform->m_position = std::move(XMFLOAT3(0.0f, 2.0f, 0.0f));
-	box->m_transform->m_scale = std::move(XMFLOAT3(2.0f, 2.0f, 2.0f));
-	box->m_constantBufferIndex = objCBIndex++;
+	box->EmplaceBack(std::move(XMFLOAT3(0.0f, 2.0f, 0.0f)), std::move(XMFLOAT3(2.0f, 2.0f, 2.0f)));
 	box->m_mesh = m_meshGeos["Total"].get();
-	box->m_material = m_material->m_data["Cube"].get();
+	box->m_matIndex = m_material->m_data["Cube"]->materialCBIndex;
+	box->m_type = m_material->m_data["Cube"]->type;
 	box->m_topologyType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	box->eboCount = box->m_mesh->drawArgs["Cube"].eboCount;
 	box->eboStart = box->m_mesh->drawArgs["Cube"].eboStart;
@@ -666,9 +662,10 @@ void BoxApp::CreateRenderItems()
 	m_renderItems.emplace_back(std::move(box));
 
 	auto grid = std::make_unique<RenderItem>();
-	grid->m_constantBufferIndex = objCBIndex++;
+	grid->EmplaceBack();
 	grid->m_mesh = m_meshGeos["Total"].get();
-	grid->m_material = m_material->m_data["Grid"].get();
+	grid->m_matIndex = m_material->m_data["Grid"]->materialCBIndex;
+	grid->m_type = m_material->m_data["Grid"]->type;
 	grid->m_topologyType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	grid->eboCount = grid->m_mesh->drawArgs["Grid"].eboCount;
 	grid->eboStart = grid->m_mesh->drawArgs["Grid"].eboStart;
@@ -676,35 +673,27 @@ void BoxApp::CreateRenderItems()
 	m_renderItems.emplace_back(std::move(grid));
 
 	// 渲染球体
+	auto sphere = make_unique<RenderItem>();
+	sphere->m_mesh = m_meshGeos["Total"].get();
+	sphere->m_matIndex = m_material->m_data["Sphere"]->materialCBIndex;
+	sphere->m_type = m_material->m_data["Sphere"]->type;
+	sphere->m_topologyType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	sphere->eboCount = sphere->m_mesh->drawArgs["Sphere"].eboCount;
+	sphere->eboStart = sphere->m_mesh->drawArgs["Sphere"].eboStart;
+	sphere->vboStart = sphere->m_mesh->drawArgs["Sphere"].vboStart;
 	for (size_t i = 0; i < 5; ++i)
 	{
-		auto leftSphere = make_unique<RenderItem>();
-		auto rightSphere = make_unique<RenderItem>();
-		leftSphere->m_transform->m_position = std::move(XMFLOAT3(-5.0f, 3.5f, -10.0f + i * 5.0f));
-		rightSphere->m_transform->m_position = std::move(XMFLOAT3(5.0f, 3.5f, -10.0f + i * 5.0f));
-		leftSphere->m_constantBufferIndex = objCBIndex++;
-		rightSphere->m_constantBufferIndex = objCBIndex++;
-		leftSphere->m_mesh = m_meshGeos["Total"].get();
-		rightSphere->m_mesh = m_meshGeos["Total"].get();
-		leftSphere->m_material = m_material->m_data["Sphere"].get();
-		rightSphere->m_material = m_material->m_data["Sphere"].get();
-		leftSphere->m_topologyType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-		rightSphere->m_topologyType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-		leftSphere->eboCount = leftSphere->m_mesh->drawArgs["Sphere"].eboCount;
-		rightSphere->eboCount = rightSphere->m_mesh->drawArgs["Sphere"].eboCount;
-		leftSphere->eboStart = leftSphere->m_mesh->drawArgs["Sphere"].eboStart;
-		rightSphere->eboStart = rightSphere->m_mesh->drawArgs["Sphere"].eboStart;
-		leftSphere->vboStart = leftSphere->m_mesh->drawArgs["Sphere"].vboStart;
-		rightSphere->vboStart = rightSphere->m_mesh->drawArgs["Sphere"].vboStart;
-		m_renderItems.emplace_back(std::move(leftSphere));
-		m_renderItems.emplace_back(std::move(rightSphere));
+		sphere->EmplaceBack(std::move(XMFLOAT3(-5.0f, 3.5f, -10.0f + i * 5.0f)));
+		sphere->EmplaceBack(std::move(XMFLOAT3(5.0f, 3.5f, -10.0f + i * 5.0f)));
 	}
+	m_renderItems.emplace_back(std::move(sphere));
 
 	auto skybox = std::make_unique<RenderItem>();
-	skybox->m_constantBufferIndex = objCBIndex++;
-	skybox->m_transform->m_scale = std::move(XMFLOAT3(5000.0f, 5000.0f, 5000.0f));
+	skybox->EmplaceBack();
+	skybox->transformPack[0]->m_scale = std::move(XMFLOAT3(5000.0f, 5000.0f, 5000.0f));
 	skybox->m_topologyType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	skybox->m_material = m_material->m_data["Skybox"].get();
+	skybox->m_matIndex = m_material->m_data["Skybox"]->materialCBIndex;
+	skybox->m_type = m_material->m_data["Skybox"]->type;
 	skybox->m_mesh = m_meshGeos["Total"].get();
 	skybox->eboCount = skybox->m_mesh->drawArgs["Sphere"].eboCount;
 	skybox->eboStart = skybox->m_mesh->drawArgs["Sphere"].eboStart;
@@ -714,15 +703,7 @@ void BoxApp::CreateRenderItems()
 	// 渲染不透明物体
 	for (auto& item : m_renderItems)
 	{
-		m_renderItemLayers[static_cast<UINT>(item->m_material->type)].emplace_back(item.get());
-	}
-	/*
-	 * 渲染镜面物体
-	 */
-	for (auto& item : reflectItems)
-	{
-		m_renderItemLayers[static_cast<UINT>(BlendType::reflective)].emplace_back(item.get());
-		m_renderItems.emplace_back(std::move(item));
+		m_renderItemLayers[static_cast<UINT>(item->m_type)].emplace_back(item.get());
 	}
 }
 
@@ -769,13 +750,15 @@ auto BoxApp::CreateStaticSampler2D() -> std::array<const CD3DX12_STATIC_SAMPLER_
 	return { pointWrap, pointClamp, linearWrap, linearClamp, anisotropicWrap, anisotropicClamp, shadowSampler };
 }
 
-void BoxApp::UpdateConstantBuffer(const GameTimer& timer)
+void BoxApp::UpdateObjectInstance(const GameTimer& timer)
 {
+	UINT offset = 0;
 	// 物体只需要设置一次的数据应当存储在常量缓冲区中，只有当脏标识变化时才会具体更新常量缓冲区
-	auto currObjectCB = m_currFrameResource->m_uploadCBuffer.get();
-	for (auto& item : m_renderItems)
+	auto currInstanceData = m_currFrameResource->m_uploadCBuffer.get();
+	for (const auto& item : m_renderItems)
 	{
-		item->Update(timer, currObjectCB);
+		item->Update(timer, currInstanceData, offset);
+		offset += item->GetInstanceSize();
 	}
 
 }
@@ -820,26 +803,8 @@ void BoxApp::UpdateOffScreen(const GameTimer& timer)
 	m_blur->Update(timer, [](UINT offset, auto& constant){});
 }
 
-//void BoxApp::UpdateStencilFrame(const GameTimer& timer)
-//{
-//	auto currStencilPassCB = m_currPassCB;
-//	XMVECTOR mirrorPlane = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-//	XMMATRIX normal = XMMatrixReflect(mirrorPlane);
-//
-//	// 光照镜像
-//	for (int i = 0; i < dirLightNum; ++i)
-//	{
-//		XMVECTOR lightDir = XMLoadFloat3(&m_currPassCB.lights[i].direction);
-//		XMVECTOR reflectDir = XMVector3TransformNormal(lightDir, normal);
-//		XMStoreFloat3(&currStencilPassCB.lights[i].direction, reflectDir);
-//	}
-//	auto passCB = m_currFrameResource->m_passCBuffer.get();
-//	passCB->Copy(1, currStencilPassCB);
-//}
-
 void BoxApp::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const vector<RenderItem*>& items)
 {
-	constexpr UINT objectCBByteSize = D3DUtil::AlignsConstantBuffer(sizeof(ConstantBuffer));
 	auto objectConstantBuffer = m_currFrameResource->m_uploadCBuffer->GetResource();
 	for (auto& item : items)
 	{
@@ -851,16 +816,14 @@ void BoxApp::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const vector<Re
 			cmdList->IASetPrimitiveTopology(item->m_topologyType);
 		}
 
-		D3D12_GPU_VIRTUAL_ADDRESS CBAddress = objectConstantBuffer->GetGPUVirtualAddress();
-		CBAddress += objectCBByteSize * item->m_constantBufferIndex;
-		cmdList->SetGraphicsRootConstantBufferView(1, CBAddress);
+		cmdList->SetGraphicsRootShaderResourceView(1, objectConstantBuffer->GetGPUVirtualAddress() + item->instanceStart * sizeof(ObjectInstance));
 		//// 为了绘制当前的帧资源和物体需要对偏移符堆做偏移
 		//UINT cbvIndex = m_currFrameResourceIndex * static_cast<UINT>(items.size()) + item->m_constantBufferIndex;
 		//auto cbvHandler = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_cbvHeap->GetGPUDescriptorHandleForHeapStart());
 		//cbvHandler.Offset(cbvIndex, m_cbvUavDescriptorSize);
 
 		//cmdList->SetGraphicsRootDescriptorTable(0, cbvHandler);
-		cmdList->DrawIndexedInstanced(item->eboCount, 1, item->eboStart, item->vboStart, 0);
+		cmdList->DrawIndexedInstanced(item->eboCount, item->GetInstanceSize(), item->eboStart, item->vboStart, 0);
 	}
 }
 

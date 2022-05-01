@@ -13,11 +13,12 @@ struct v2f {
     float3 frag : POSITION;
 };
 
-v2f Vert(Input v) {
+v2f Vert(Input v, uint instanceID : SV_INSTANCEID) {
     v2f o;
+    ObjectInstance objectData = instanceData[instanceID];
     // 将输入的位置作为输出的纹理坐标
     o.frag = v.vertex;
-    float4 worldPos = mul(float4(v.vertex, 1.0f), cbPerobject.g_model);
+    float4 worldPos = mul(float4(v.vertex, 1.0f), objectData.g_model);
     // 需要移除所有位移但保留所有旋转变换
     worldPos.xyz += cbPass.g_cameraPos;
     // 为了欺骗深度缓冲，让其认为天空盒有者最大的深度值1.0f以寻求提前深度测试

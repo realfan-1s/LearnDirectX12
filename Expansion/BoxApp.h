@@ -54,10 +54,9 @@ private:
 	void CreateMaterials();
 	auto CreateStaticSampler2D() -> std::array<const CD3DX12_STATIC_SAMPLER_DESC, 7>;
 
-	void UpdateConstantBuffer(const GameTimer& timer);
+	void UpdateObjectInstance(const GameTimer& timer);
 	void UpdatePassConstant(const GameTimer& timer); 
 	void UpdateMaterialConstant(const GameTimer& timer);
-	//void UpdateStencilFrame(const GameTimer& timer);
 	void UpdateOffScreen(const GameTimer& timer);
 
 	void DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const vector<RenderItem*>& items);

@@ -6,7 +6,7 @@ RWTexture2D<float4> output : register(u0, space0);
 
 float CalcLuma(float3 col);
 
-[numthreads(HORIZONTAL_GROUP, VECTRICAL_GROUP, 1)]
+[numthreads(16, 16, 1)]
 void Down(uint3 dispatchID : SV_DISPATCHTHREADID){
 	float3 texs[16];
 	float totalLuma = 0.0f;
@@ -35,7 +35,7 @@ void Down(uint3 dispatchID : SV_DISPATCHTHREADID){
 	output[dispatchID.xy] = float4(ans, 1.0f);
 }
 
-[numthreads(HORIZONTAL_GROUP, VECTRICAL_GROUP, 1)]
+[numthreads(16, 16, 1)]
 void Up(uint3 dispatchID : SV_DISPATCHTHREADID){
 	int2 rowPos = dispatchID.xy / 4;
 	int2 offset[9] = {	int2(-1, -1), int2(0, -1), int2(1, -1),

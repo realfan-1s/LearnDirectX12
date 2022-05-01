@@ -19,25 +19,29 @@ struct v2f
     float3 frag : POSITION0;
     float4 shadowPos : POSITION1;
     float2 uv : TEXCOORD;
+
+    nointerpolation uint matIndex : MATINDEX;
 };
 
 
-v2f Vert(input v)
+v2f Vert(input v, uint instanceID : SV_INSTANCEID)
 {
     v2f o;
-    float4 worldFrag = mul(float4(v.vertex, 1.0f), cbPerobject.g_model);
+    ObjectInstance objectData = instanceData[instanceID];
+    float4 worldFrag = mul(float4(v.vertex, 1.0f), objectData.g_model);
     o.frag = worldFrag.xyz;
     o.pos = mul(worldFrag, cbPass.g_vp);
     o.shadowPos = mul(worldFrag, cbPass.shadowTansform);
-    o.normal = mul(v.normal, (float3x3)cbPerobject.g_model);
-    o.tangent = mul(v.tangent, (float3x3)cbPerobject.g_model);
+    o.normal = mul(v.normal, (float3x3)objectData.g_model);
+    o.tangent = mul(v.tangent, (float3x3)objectData.g_model);
+    o.matIndex = objectData.g_matIndex;
     o.uv = v.uv;
     return o;
 }
 
 float4 Frag(v2f o) : SV_TARGET
 {
-    Material mat = cbMaterial[cbPerobject.g_matIndex];
+    Material mat = cbMaterial[o.matIndex];
     float4 sampleCol = g_modelTexture[mat.diffuseIndex].Sample(anisotropicWrap, o.uv);
 #ifdef ALPHA
     clip(sampleCol.a - 0.1f);
@@ -54,7 +58,7 @@ float4 Frag(v2f o) : SV_TARGET
     float3 viewDir = normalize(cbPass.g_cameraPos - o.frag);
     MaterialData matData;
     matData.albedo = albedo;
-    matData.roughness = mat.roughness;
+    matData.roughness = mat.roughness * sampleCol.a;
     matData.emission = mat.emission;
     matData.metalness = mat.metalness;
     float3 ans = ComputeLighting(cbPass.lights, matData, o.frag, normalDir, viewDir, o.shadowPos) + ambient;

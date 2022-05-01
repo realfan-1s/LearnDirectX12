@@ -33,7 +33,7 @@ struct Vertex_CPU
 	Vertex_CPU() = default;
 };
 
-struct ConstantBuffer
+struct ObjectInstance
 {
 	XMFLOAT4X4	model_gpu{ MathHelper::MathHelper::identity4x4() };
 	XMFLOAT4X4	texTransform_gpu{ MathHelper::MathHelper::identity4x4() };
@@ -41,7 +41,7 @@ struct ConstantBuffer
 	UINT		objPad0_gpu;
 	UINT		objPad1_gpu;
 	UINT		objPad2_gpu;
-	ConstantBuffer() = default;
+	ObjectInstance() = default;
 };
 
 struct PassConstant

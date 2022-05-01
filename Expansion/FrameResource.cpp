@@ -1,7 +1,7 @@
 #include "FrameResource.h"
 
 FrameResource::FrameResource(ID3D12Device* device, UINT passCount, UINT objectCount, UINT matCount)
-: m_uploadCBuffer(std::make_unique<UploaderBuffer<ConstantBuffer>>(device, objectCount, true)),
+: m_uploadCBuffer(std::make_unique<UploaderBuffer<ObjectInstance>>(device, objectCount, false)),
 m_passCBuffer(std::make_unique<UploaderBuffer<PassConstant>>(device, passCount, true)),
 m_materialCBuffer(std::make_unique<UploaderBuffer<MaterialConstant>>(device, matCount, false))
 {
