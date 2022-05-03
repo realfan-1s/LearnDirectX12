@@ -134,3 +134,8 @@ ID3D12Resource* Effect::TexSizeChange::GetUpSamplerResource() const {
 std::tuple<UINT, UINT, float, float> Effect::TexSizeChange::GetShrinkTuple() const {
 	return std::make_tuple(m_sizeData.m_shrinkWidth, m_sizeData.m_shrinkHeight, m_sizeData.m_invShrinkWidth, m_sizeData.m_invShrinkHeight);
 }
+
+CD3DX12_GPU_DESCRIPTOR_HANDLE TexSizeChange::GetUpSamplerSRV() const
+{
+	return m_gpuUpUAV;
+}

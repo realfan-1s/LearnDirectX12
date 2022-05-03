@@ -2,7 +2,6 @@
 
 #include <string>
 #include <wrl/client.h>
-#include <Src/d3dx12.h>
 #include <d3d12.h>
 #include <dxgi1_6.h>
 #include <DirectXCollision.h>
@@ -11,16 +10,20 @@
 #include "Material.h"
 #include "Vertex.h"
 #include "Transform.h"
-#include <iostream>
 
 class Mesh;
 using namespace std;
 using Microsoft::WRL::ComPtr;
 
-struct RenderItem
-{
-private:
+struct Item {
+protected:
 	inline static UINT instanceCount = 0;
+public:
+	static UINT GetInstanceCount();
+};
+
+struct RenderItem : public Item
+{
 public:
 	RenderItem() = default;
 	std::vector<std::shared_ptr<Transform>>	transformPack;
@@ -62,7 +65,7 @@ public:
 		transformPack.emplace_back(std::make_shared<Transform>());
 	}
 	template <typename... Args, std::enable_if_t<sizeof...(Args) <= 3 && (is_same_v<decltype(Transform::m_scale), Args>, ...)>* = nullptr>
-	void SetParameters(UINT pos, Args&&... args)
+	void SetParameters(UINT pos, Args&&... args) // (1) position (2) scale (3) rotation
 	{
 		const auto& form = transformPack[pos];
 		auto list = std::make_tuple(std::forward<Args>(args)...);
@@ -81,7 +84,6 @@ public:
 		}
 	}
 	UINT GetInstanceSize() const;
-	static UINT GetInstanceCount();
 };
 
 struct Submesh

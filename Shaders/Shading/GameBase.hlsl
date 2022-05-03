@@ -7,8 +7,6 @@
 #define DIR_LIGHT_NUM 3
 #define SPOT_LIGHT_COUNT 0
 #define POINT_LIGHT_COUNT 0
-#define GAMMA_FACTOR 2.2f
-#define INV_GAMMA_FACTOR (1.0f / GAMMA_FACTOR)
 
 struct Light {
     float3 strength; // 光源的颜色
@@ -220,16 +218,6 @@ float3 ComputeLighting(Light lights[MAX_LIGHTS], MaterialData mat, float3 pos, f
     return res + mat.emission;
 }
 
-float3 ACESToneMapping(float3 color)
-{
-    const float A = 2.51f;
-    const float B = 0.03f;
-    const float C = 2.43f;
-    const float D = 0.59f;
-    const float E = 0.14f;
-    return (color * (A * color + B)) / (color * (C * color + D) + E);
-}
-
 float3 CalcByTBN(float3 normSample, float3 normalW, float3 tangentW)
 {
     float3 norm = normalize(normalW);
@@ -245,6 +233,9 @@ float3 CalcByTBN(float3 normSample, float3 normalW, float3 tangentW)
 float ShadowFilterByPCF(float4 shadowPos){
     float ans = 0.0f;
     shadowPos.xyz /= shadowPos.w;
+    if (shadowPos.z > 1.0f)
+        return 1.0f;
+
     uint width, height, mipLevels;
     g_shadow.GetDimensions(0, width, height, mipLevels);
     float dx = 1.0f / width;
@@ -295,4 +286,7 @@ float ShadoFilterByPCSS(float4 shadowPos){
     return ans;
 }
 
+float CalcLuma(float3 col) {
+	return dot(col, float3(0.2126f, 0.7152f, 0.0722f));
+}
 #endif

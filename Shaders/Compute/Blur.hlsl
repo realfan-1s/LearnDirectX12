@@ -1,35 +1,15 @@
 #ifndef GAUSSIAN_BLUR
 #define GAUSSIAN_BLUR
 
+#include "Struct.hlsl"
+
 #define NUM_THREADS (256)
 #define MAX_BLUR_SIZE (3)
 #define CACHE_SIZE (NUM_THREADS + 2 * MAX_BLUR_SIZE)
 
-struct cbSettings
-{
-    // blur weight;
-    float w0;
-    float w1;
-    float w2;
-    float w3;
-    float o0;
-    float o1;
-    float o2;
-    float o3;
-    float2 texSize;
-    float2 invTexSize;
-};
-
 ConstantBuffer<cbSettings> cbBlur : register(b0, space0);
 Texture2D input : register(t0, space0);
 RWTexture2D<float4> output : register(u0, space0);
-
-SamplerState            pointWrap        : register(s0);
-SamplerState            pointClamp       : register(s1);
-SamplerState            linearWrap       : register(s2);
-SamplerState            linearClamp      : register(s3);
-SamplerState            anisotropicWrap  : register(s4);
-SamplerState            anisotropicClamp : register(s5);
 
 groupshared float4 cache[CACHE_SIZE];
 

@@ -32,6 +32,7 @@ public:
 	ID3D12Resource* GetDownSamplerResource() const;
 	ID3D12Resource* GetUpSamplerResource() const;
 	std::tuple<UINT, UINT, float, float> GetShrinkTuple() const;
+	CD3DX12_GPU_DESCRIPTOR_HANDLE GetUpSamplerSRV() const;
 private:
 	struct Sampler {};
 	struct alignas(16) SizeData {
@@ -72,56 +73,36 @@ public:
 template <typename T, std::enable_if_t<std::is_base_of_v<TexSizeChange::Sampler, T> && T::value>*>
 void TexSizeChange::SubDraw(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* source) const
 {
-	{
-		const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(downSamplerRes1.Get(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-		cmdList->ResourceBarrier(1, &trans);
-	}
+	ChangeState<D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_UNORDERED_ACCESS>(cmdList, downSamplerRes1.Get());
 	cmdList->SetPipelineState(downSamplerPso.Get());
+	float texSize[4] = { static_cast<float>(m_sizeData.m_shrinkWidth), static_cast<float>(m_sizeData.m_shrinkHeight), m_sizeData.m_invShrinkWidth, m_sizeData.m_invShrinkHeight };
+	cmdList->SetComputeRoot32BitConstants(0, 4, &texSize, 0);
 	cmdList->SetComputeRootDescriptorTable(1, m_gpuDownSRV);
 	cmdList->SetComputeRootDescriptorTable(2, m_gpuDownUAV);
 	const UINT downGroupX = static_cast<UINT>(std::ceilf(static_cast<float>(m_sizeData.m_shrinkWidth) / 16.0f));
 	const UINT downGroupY = static_cast<UINT>(std::ceilf(static_cast<float>(m_sizeData.m_shrinkHeight) / 16.0f));
 	cmdList->Dispatch(downGroupX, downGroupY, 1);
-	{
-		const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(downSamplerRes.Get(), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_COMMON);
-		cmdList->ResourceBarrier(1, &trans);
-	}
-	{
-		const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(downSamplerRes1.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
-		cmdList->ResourceBarrier(1, &trans);
-	}
-	{
-		const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(source, D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST);
-		cmdList->ResourceBarrier(1, &trans);
-	}
+	ChangeState<D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_COMMON>(cmdList, downSamplerRes.Get());
+	ChangeState<D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE>(cmdList, downSamplerRes1.Get());
+	ChangeState<D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST>(cmdList, source);
 	cmdList->CopyResource(source, downSamplerRes1.Get());
-	{
-		const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(source, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ);
-		cmdList->ResourceBarrier(1, &trans);
-	}
-	{
-		const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(downSamplerRes1.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_COMMON);
-		cmdList->ResourceBarrier(1, &trans);
-	}
+	ChangeState<D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ>(cmdList, source);
+	ChangeState<D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_COMMON>(cmdList, downSamplerRes1.Get());
 }
 
 template <typename T, std::enable_if_t<std::is_base_of_v<TexSizeChange::Sampler, T> && !T::value>*>
 void TexSizeChange::SubDraw(ID3D12GraphicsCommandList* cmdList, CD3DX12_GPU_DESCRIPTOR_HANDLE sourceSRV) const
 {
-	{
-		const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(upSamplerRes.Get(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-		cmdList->ResourceBarrier(1, &trans);
-	}
+	ChangeState<D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_UNORDERED_ACCESS>(cmdList, upSamplerRes.Get());
 	cmdList->SetPipelineState(upSamplerPso.Get());
+	const float parameters[4] = { (float)m_width, (float)m_height, m_sizeData.m_invRawWidth, m_sizeData.m_invRawHeight };
+	cmdList->SetComputeRoot32BitConstants(0, 4, &parameters, 0);
 	cmdList->SetComputeRootDescriptorTable(1, sourceSRV);
 	cmdList->SetComputeRootDescriptorTable(2, m_gpuUpUAV);
 	const UINT upGroupX = static_cast<UINT>(std::ceilf(static_cast<float>(m_width) / 16.0f));
 	const UINT upGroupY = static_cast<UINT>(std::ceilf(static_cast<float>(m_height) / 16.0f));
 	cmdList->Dispatch(upGroupX, upGroupY, 1);
-	{
-		const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(upSamplerRes.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COMMON);
-		cmdList->ResourceBarrier(1, &trans);
-	}
+	ChangeState<D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COMMON>(cmdList, upSamplerRes.Get());
 }
 }
 

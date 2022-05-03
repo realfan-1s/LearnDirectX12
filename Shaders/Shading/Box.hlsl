@@ -39,7 +39,12 @@ v2f Vert(input v, uint instanceID : SV_INSTANCEID)
     return o;
 }
 
-float4 Frag(v2f o) : SV_TARGET
+struct PixelOut {
+    float4 rawCol : SV_TARGET0;
+    float4 bloomCol : SV_TARGET1;
+};
+
+PixelOut Frag(v2f o)
 {
     Material mat = cbMaterial[o.matIndex];
     float4 sampleCol = g_modelTexture[mat.diffuseIndex].Sample(anisotropicWrap, o.uv);
@@ -63,9 +68,11 @@ float4 Frag(v2f o) : SV_TARGET
     matData.metalness = mat.metalness;
     float3 ans = ComputeLighting(cbPass.lights, matData, o.frag, normalDir, viewDir, o.shadowPos) + ambient;
 
-    ans = ACESToneMapping(ans);
-    ans = pow(abs(ans), INV_GAMMA_FACTOR);
-    return float4(ans, sampleCol.a);
+    PixelOut pixAns;
+    float luma = CalcLuma(ans);
+    pixAns.rawCol = float4(ans, sampleCol.a);
+    pixAns.bloomCol = luma > 1.0f ? float4(ans, sampleCol.a) : float4(0.0f, 0.0f, 0.0f, 1.0f);
+    return pixAns;
 };
 
 #endif

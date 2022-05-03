@@ -299,7 +299,7 @@ protected:
 		for (UINT i = 0; i < m_swapBufferCount; ++i)
 		{
 			m_swapChain->GetBuffer(i, IID_PPV_ARGS(&m_swapChainBuffers[i]));
-			m_d3dDevice->CreateRenderTargetView(m_swapChainBuffers[i].Get(), nullptr, rtvHeapHandler); // pDesc设置为空指针表示采用该资 源创建时得分格式并为它的第一个MIPMAP层级创建一个视图
+			m_d3dDevice->CreateRenderTargetView(m_swapChainBuffers[i].Get(), nullptr, rtvHeapHandler); // pDesc设置为空指针表示采用该资源创建时得分格式并为它的第一个MIPMAP层级创建一个视图
 			rtvHeapHandler.Offset(1, m_rtvDescriptorSize);
 		}
 
@@ -343,11 +343,7 @@ protected:
 		// 利用此资源的格式，创建第0层mipmap的描述符
 		m_d3dDevice->CreateDepthStencilView(m_depthStencilBuffer.Get(), &dsvDesc, GetDepthStencilView());
 		// 将资源从初始状态装变为深度缓冲区
-		const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(
-			m_depthStencilBuffer.Get(),
-			D3D12_RESOURCE_STATE_COMMON,
-			D3D12_RESOURCE_STATE_DEPTH_WRITE);
-		m_commandList->ResourceBarrier(1, &trans);
+		ChangeState<D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_DEPTH_WRITE>(m_commandList.Get(), m_depthStencilBuffer.Get());
 		m_commandList->Close();
 		// 执行resize后的命令队列
 		ID3D12CommandList* cmdsLists[] = { m_commandList.Get() };

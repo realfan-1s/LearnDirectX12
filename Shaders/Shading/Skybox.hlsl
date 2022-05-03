@@ -26,10 +26,18 @@ v2f Vert(Input v, uint instanceID : SV_INSTANCEID) {
     return o;
 }
 
-float4 Frag(v2f o) : SV_TARGET {
+struct PixelOut {
+    float4 rawCol : SV_TARGET0;
+    float4 bloomCol : SV_TARGET1;
+};
+
+PixelOut Frag(v2f o) {
     float3 ans = g_skybox.Sample(anisotropicWrap, o.frag).xyz;
-    ans = ACESToneMapping(ans);
-    return float4(ans, 1.0f);
+    PixelOut pixAns;
+    float luma = CalcLuma(ans);
+    pixAns.rawCol = float4(ans, 1.0f);
+    pixAns.bloomCol = luma > 1.0f ? float4(ans, 1.0f) : float4(0.0f, 0.0f, 0.0f, 1.0f);
+    return pixAns;
 }
 
 #endif

@@ -20,6 +20,7 @@ public:
 
 	ID3D12Resource* GetResourceDownSampler() const;
 	ID3D12Resource* GetResourceUpSampler() const;
+	CD3DX12_GPU_DESCRIPTOR_HANDLE GetUpSamplerSRV() const;
 private:
 	void CreateDescriptors() override;
 	void CreateResources() override;

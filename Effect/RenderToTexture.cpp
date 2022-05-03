@@ -65,10 +65,7 @@ void Effect::RenderToTexture::InitDepthAndStencil(ID3D12GraphicsCommandList* cmd
 	}
 
 	m_device->CreateDepthStencilView(m_depthStencilRes.Get(), nullptr, m_cpuDSV);
-	{
-		const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(m_depthStencilRes.Get(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_DEPTH_WRITE);
-		cmdList->ResourceBarrier(1, &trans);
-	}
+	ChangeState<D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_DEPTH_WRITE>(cmdList, m_depthStencilRes.Get());
 }
 
 void Effect::RenderToTexture::InitSRV(std::string_view name) {

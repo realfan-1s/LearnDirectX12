@@ -8,10 +8,7 @@
 #include "Mesh.h"
 #include "Material.h"
 #include <array>
-#include "Shadow.h"
-#include "CubeMap.h"
-#include "DynamicCubeMap.h"
-#include "GuassianBlur.h"
+#include "EffectHeader.h"
 
 using namespace DirectX;
 using namespace Template;
@@ -75,15 +72,17 @@ private:
 	// ComPtr<ID3D12DescriptorHeap>						m_cbvHeap{ nullptr };
 
 	unordered_map<string, std::unique_ptr<Mesh>>		m_meshGeos;
-	unordered_map<string, unique_ptr<Shader>>			m_shader;
 	std::shared_ptr<Material>							m_material{ nullptr };
-	unordered_map<string, ComPtr<ID3D12PipelineState>>	m_pso;
+	ComPtr<ID3D12PipelineState>							m_pso;
+	std::vector<std::shared_ptr<Light>>					m_lights;
 
 	POINT												m_lastMousePos;
-	std::vector<std::shared_ptr<Light>>					m_lights;
+	unique_ptr<Shader>									m_shader;
 	std::unique_ptr<Effect::CubeMap>					m_skybox;
 	std::unique_ptr<Effect::DynamicCubeMap>				m_dynamicCube;
 	std::unique_ptr<Effect::Shadow>						m_shadow;
+
 	std::unique_ptr<Effect::GaussianBlur>				m_blur;
+	std::unique_ptr<Effect::ToneMap>					m_toneMap;
 };   
 

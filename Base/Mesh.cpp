@@ -1,5 +1,10 @@
 #include "Mesh.h"
 
+UINT Item::GetInstanceCount()
+{
+	return instanceCount;
+}
+
 void RenderItem::Update(const GameTimer& timer, UploaderBuffer<ObjectInstance>* currObjectCB, UINT offset)
 {
 	instanceStart = offset;
@@ -19,11 +24,6 @@ void RenderItem::Update(const GameTimer& timer, UploaderBuffer<ObjectInstance>* 
 
 UINT RenderItem::GetInstanceSize() const {
 	return static_cast<UINT>(transformPack.size());
-}
-
-UINT RenderItem::GetInstanceCount()
-{
-	return instanceCount;
 }
 
 D3D12_VERTEX_BUFFER_VIEW Mesh::GetVBOView() const

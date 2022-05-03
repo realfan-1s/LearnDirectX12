@@ -197,11 +197,7 @@ void D3DApp::Resize() {
 	// 利用此资源的格式，创建第0层mipmap的描述符
 	m_d3dDevice->CreateDepthStencilView(m_depthStencilBuffer.Get(), &dsvDesc, GetDepthStencilView());
 	// 将资源从初始状态装变为深度缓冲区
-	const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(
-		m_depthStencilBuffer.Get(),
-		D3D12_RESOURCE_STATE_COMMON,
-		D3D12_RESOURCE_STATE_DEPTH_WRITE);
-	m_commandList->ResourceBarrier(1, &trans);
+	ChangeState<D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_DEPTH_WRITE>(m_commandList.Get(), m_depthStencilBuffer.Get());
 	m_commandList->Close();
 	// 执行resize后的命令队列
 	ID3D12CommandList* cmdsLists[] = { m_commandList.Get() };

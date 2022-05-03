@@ -11,6 +11,7 @@
 #include "BaseGeometry.h"
 #include "Texture.h"
 #include <ObjLoader.h>
+#include "PostProcessMgr.hpp"
 
 BoxApp::BoxApp(HINSTANCE instance, bool startMsaa, Camera::CameraType type)
 : D3DApp_Template(instance, startMsaa, type), m_material(std::make_shared<Material>()), m_skybox(std::make_unique<Effect::CubeMap>())
@@ -57,6 +58,7 @@ void BoxApp::Resize()
 {
 	D3DApp_Template::Resize(*this);
 	m_blur->OnResize(m_clientWidth, m_clientHeight);
+	m_toneMap->OnResize(m_clientWidth, m_clientHeight);
 }
 
 void BoxApp::Update(const GameTimer& timer)
@@ -92,7 +94,7 @@ void BoxApp::DrawScene(const GameTimer& timer)
 {
 	auto alloc = m_currFrameResource->m_commandAllocator;
 	ThrowIfFailed(alloc->Reset());
-	ThrowIfFailed(m_commandList->Reset(alloc.Get(), m_pso["Opaque"].Get()));
+	ThrowIfFailed(m_commandList->Reset(alloc.Get(), m_pso.Get()));
 
 	// 将根签名和CBV/SRV堆设置到命令队列上
 	ID3D12DescriptorHeap* descriptorSRVHeaps[] = { TextureMgr::instance().GetSRVDescriptorHeap() };
@@ -123,24 +125,15 @@ void BoxApp::DrawScene(const GameTimer& timer)
 
 	m_commandList->RSSetViewports(1, &m_camera->GetViewPort());
 	m_commandList->RSSetScissorRects(1, &m_scissorRect);
-	{
-		const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(
-			GetCurrentBackBuffer(),
-			D3D12_RESOURCE_STATE_PRESENT,
-			D3D12_RESOURCE_STATE_RENDER_TARGET);
-		m_commandList->ResourceBarrier(1, &trans);
-	}
 
+	ChangeState<D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET>(m_commandList.Get(), GetCurrentBackBuffer());
 	m_commandList->ClearRenderTargetView(GetCurrentBackBufferView(), Colors::LightSteelBlue, 0, nullptr);
-	m_commandList->ClearDepthStencilView(GetDepthStencilView(),
-		D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
-		1.0f, 0, 0, nullptr);
+	m_commandList->ClearDepthStencilView(GetDepthStencilView(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,1.0f, 0, 0, nullptr);
 
 	// 指定渲染缓冲区
 	{
-		const auto& backView = GetCurrentBackBufferView();
 		const auto& depthStencilView = GetDepthStencilView();
-		m_commandList->OMSetRenderTargets(1, &backView, true, &depthStencilView);
+		m_commandList->OMSetRenderTargets(2, &m_toneMap->GetRenderTarget<0>(), true, &depthStencilView);
 	}
 
 	//ID3D12DescriptorHeap* descriptorHeaps[] = { m_cbvHeap.Get() };
@@ -154,46 +147,11 @@ void BoxApp::DrawScene(const GameTimer& timer)
 	shadowSRVHandler.Offset(m_shadow->GetSrvIdx("ShadowMap").value_or(0), m_cbvUavDescriptorSize);
 	m_commandList->SetGraphicsRootDescriptorTable(5, shadowSRVHandler);
 
-	/*
-	if (!m_renderItemLayers[static_cast<UINT>(BlendType::reflective)].empty())
-	{
-		// 对于需要离屏渲染的物体但对设置两个常量缓冲区，一个存储物体镜像另一个则存储光照镜像
-		auto passCB = m_currFrameResource->m_passCBuffer->GetResource();
-		constexpr UINT currPassByteSize = D3DUtil::AlignsConstantBuffer(sizeof(PassConstant));
-		m_commandList->SetGraphicsRootConstantBufferView(0, passCB->GetGPUVirtualAddress() + currPassByteSize);
-		m_commandList->SetPipelineState(m_pso["Reflective"].Get());
-		DrawRenderItems(m_commandList.Get(), m_renderItemLayers[static_cast<UINT>(BlendType::reflective)]);
-		m_commandList->SetGraphicsRootConstantBufferView(0, passCB->GetGPUVirtualAddress());
-		m_commandList->OMSetStencilRef(0);
-	}
-	
-	if (!m_renderItemLayers[static_cast<UINT>(BlendType::alpha)].empty())
-	{
-		m_commandList->SetPipelineState(m_pso["Alpha"].Get());
-		DrawRenderItems(m_commandList.Get(), m_renderItemLayers[static_cast<UINT>(BlendType::alpha)]);
-	}
-
-	if (!m_renderItemLayers[static_cast<UINT>(BlendType::mirror)].empty())
-	{
-		m_commandList->OMSetStencilRef(1);
-		m_commandList->SetPipelineState(m_pso["Mirror"].Get());
-		DrawRenderItems(m_commandList.Get(), m_renderItemLayers[static_cast<UINT>(BlendType::mirror)]);
-	}
-
-	if (!m_renderItemLayers[static_cast<UINT>(BlendType::transparent)].empty())
-	{
-		m_commandList->SetPipelineState(m_pso["Transparent"].Get());
-		DrawRenderItems(m_commandList.Get(), m_renderItemLayers[static_cast<UINT>(BlendType::transparent)]);
-	}
-	*/
-
 	// 通过传参的方式将CBV和某个根描述符相互绑定
-	{
-		m_commandList->SetPipelineState(m_pso["Opaque"].Get());
-		auto passCB = m_currFrameResource->m_passCBuffer->GetResource(); 
-		m_commandList->SetGraphicsRootConstantBufferView(0, passCB->GetGPUVirtualAddress());
-		DrawRenderItems(m_commandList.Get(), m_renderItemLayers[static_cast<UINT>(BlendType::opaque)]); 
-	}
+	m_commandList->SetPipelineState(m_pso.Get());
+	auto passCB = m_currFrameResource->m_passCBuffer->GetResource(); 
+	m_commandList->SetGraphicsRootConstantBufferView(0, passCB->GetGPUVirtualAddress());
+	DrawRenderItems(m_commandList.Get(), m_renderItemLayers[static_cast<UINT>(BlendType::opaque)]); 
 	m_commandList->SetPipelineState(m_skybox->GetPSO());
 	DrawRenderItems(m_commandList.Get(), m_renderItemLayers[static_cast<UINT>(BlendType::skybox)]);
 
@@ -260,7 +218,7 @@ void BoxApp::CreateRtvAndDsvDescriptorHeaps() {
 	// 为立方体渲染目标添加六个RTV
 	D3D12_DESCRIPTOR_HEAP_DESC rtvDesc;
 	rtvDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-	rtvDesc.NumDescriptors = m_swapBufferCount + 6;
+	rtvDesc.NumDescriptors = m_swapBufferCount + 8;
 	rtvDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 	rtvDesc.NodeMask = 0;
 	ThrowIfFailed(m_d3dDevice->CreateDescriptorHeap(&rtvDesc, IID_PPV_ARGS(m_rtvHeap.GetAddressOf())));
@@ -278,7 +236,9 @@ void BoxApp::CreateOffScreenRendering() {
 	m_shadow = std::make_unique<Effect::Shadow>(m_d3dDevice.Get(), 2048U, DXGI_FORMAT_R24G8_TYPELESS);
 	m_dynamicCube = std::make_unique<Effect::DynamicCubeMap>(m_d3dDevice.Get(), 1024U, 1024U, DXGI_FORMAT_R8G8B8A8_UNORM);
 	m_dynamicCube->InitCamera(0.0f, 2.0f, 0.0f);
+	PostProcessMgr::instance().Init(m_d3dDevice.Get());
 	m_blur = std::make_unique<Effect::GaussianBlur>(m_d3dDevice.Get(), m_clientWidth, m_clientHeight, DXGI_FORMAT_R8G8B8A8_UNORM, 2U);
+	m_toneMap = std::make_unique<Effect::ToneMap>(m_d3dDevice.Get(), m_clientWidth, m_clientHeight, m_backBufferFormat);
 }
 
 void BoxApp::UpdateLUT(const GameTimer& timer)
@@ -301,7 +261,7 @@ void BoxApp::DrawLUT()
 {
 	auto alloc = m_currFrameResource->m_commandAllocator;
 	ThrowIfFailed(alloc->Reset());
-	ThrowIfFailed(m_commandList->Reset(alloc.Get(), m_pso["Opaque"].Get()));
+	ThrowIfFailed(m_commandList->Reset(alloc.Get(), m_pso.Get()));
 
 	// 将根签名和CBV/SRV堆设置到命令队列上
 	ID3D12DescriptorHeap* descriptorSRVHeaps[] = { TextureMgr::instance().GetSRVDescriptorHeap() };
@@ -327,7 +287,7 @@ void BoxApp::DrawLUT()
 		DrawRenderItems(m_commandList.Get(), m_renderItemLayers[static_cast<UINT>(BlendType::opaque)]);
 		m_commandList->SetPipelineState(m_skybox->GetPSO());
 		DrawRenderItems(m_commandList.Get(), m_renderItemLayers[static_cast<UINT>(BlendType::skybox)]);
-		m_commandList->SetPipelineState(m_pso["Opaque"].Get());
+		m_commandList->SetPipelineState(m_pso.Get());
 	});
 
 	// 完成命令的记录
@@ -373,6 +333,7 @@ void BoxApp::CreateDescriptorHeaps()
 	m_dynamicCube->InitDepthAndStencil(m_commandList.Get());
 	m_shadow->CreateDescriptors(cpuSrvStart, gpuSrvStart, dsvCpuStart, m_cbvUavDescriptorSize, m_dsvDescriptorSize, 2);
 	m_blur->CreateDescriptors(cpuSrvStart, gpuSrvStart, m_cbvUavDescriptorSize);
+	m_toneMap->CreateDescriptors(cpuSrvStart, gpuSrvStart, cpuRtvStart, rtvOffset, m_rtvDescriptorSize, m_cbvUavDescriptorSize);
 }
 
 // 根签名：执行绘制命令之前，应用成程序将绑定到流水线上的资源映射到对应的输入寄存器。
@@ -421,30 +382,22 @@ void BoxApp::CreateShadersAndInput()
 	/// <summary>
 	/// make_unique是个函数模板，只能推导传递给对象构造函数的参数类型而花括号列表是不可推导的
 	/// </summary>
-	m_shader["Opaque"] = make_unique<Shader>(default_shader, L"Shaders\\Box",
+	m_shader = make_unique<Shader>(default_shader, L"Shaders\\Box",
 		initializer_list<D3D12_INPUT_ELEMENT_DESC>({{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
 		{"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
 		{"TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT,0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
 		{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 36, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0}}));
-	//m_shader["Alpha"] = make_unique<Shader>(default_shader, L"Shaders\\Alpha",
-	//	initializer_list<D3D12_INPUT_ELEMENT_DESC>({ {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-	//	{"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-	//	{"TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT,0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-	//	{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 36, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0} }));
-	//m_shader["Reflect"] = make_unique<Shader>(default_shader, L"Shaders\\Reflect",
-	//	initializer_list<D3D12_INPUT_ELEMENT_DESC>({ {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-	//	{"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-	//	{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0} }));
 	m_shadow->InitShader(L"Shaders\\Shadow");
 	m_dynamicCube->InitShader(L"Shaders\\Skybox");
 	m_blur->InitShader(L"Shaders\\Blur_Horizontal", L"Shaders\\Blur_Vertical");
+	m_toneMap->InitShader(L"Shaders\\ToneMap_ACES");
 }
 
 void BoxApp::CreateGeometry()
 {
 	BaseMeshData box = BaseGeometry::CreateCube(1.0f, 1.0f, 1.0f, 3);
 	BaseMeshData sphere = BaseGeometry::CreateSphere(0.5f, 20, 20);
-	BaseMeshData grid = BaseGeometry::CreateGrid(20.0f, 30.0f, 60, 40);
+	BaseMeshData grid = BaseGeometry::CreateGrid(40.0f, 60.0f, 60, 40);
 
 	/*
 	 * 将所有的几个体合并到一堆大的顶点、索引缓冲区中
@@ -517,127 +470,34 @@ void BoxApp::CreatePSO()
 {
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC opaqueDesc;
 	ZeroMemory(&opaqueDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
-	opaqueDesc.InputLayout = { m_shader["Opaque"]->GetInputLayouts(), m_shader["Opaque"]->GetInputLayoutSize() };
+	opaqueDesc.InputLayout = { m_shader->GetInputLayouts(), m_shader->GetInputLayoutSize() };
 	opaqueDesc.pRootSignature = m_rootSignature.Get();
 	opaqueDesc.VS = {
-		static_cast<BYTE*>(m_shader["Opaque"]->GetShaderByType(ShaderPos::vertex)->GetBufferPointer()),
-		m_shader["Opaque"]->GetShaderByType(ShaderPos::vertex)->GetBufferSize()
+		static_cast<BYTE*>(m_shader->GetShaderByType(ShaderPos::vertex)->GetBufferPointer()),
+		m_shader->GetShaderByType(ShaderPos::vertex)->GetBufferSize()
 	};
 	opaqueDesc.PS = {
-		static_cast<BYTE*>(m_shader["Opaque"]->GetShaderByType(ShaderPos::fragment)->GetBufferPointer()),
-		m_shader["Opaque"]->GetShaderByType(ShaderPos::fragment)->GetBufferSize()
+		static_cast<BYTE*>(m_shader->GetShaderByType(ShaderPos::fragment)->GetBufferPointer()),
+		m_shader->GetShaderByType(ShaderPos::fragment)->GetBufferSize()
 	};
 	opaqueDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
 	opaqueDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 	opaqueDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
 	opaqueDesc.SampleMask = UINT_MAX;
 	opaqueDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-	opaqueDesc.NumRenderTargets = 1u;
+	opaqueDesc.NumRenderTargets = 2u;
 	opaqueDesc.RTVFormats[0] = m_backBufferFormat;
+	opaqueDesc.RTVFormats[1] = m_backBufferFormat;
 	opaqueDesc.SampleDesc.Count = m_msaaState ? 4u : 1u;
 	opaqueDesc.SampleDesc.Quality = m_msaaState ? (m_msaaQuality - 1u) : 0u;
 	opaqueDesc.DSVFormat = m_depthStencilFormat;
-	ThrowIfFailed(m_d3dDevice->CreateGraphicsPipelineState(&opaqueDesc, IID_PPV_ARGS(&m_pso["Opaque"])));
+	ThrowIfFailed(m_d3dDevice->CreateGraphicsPipelineState(&opaqueDesc, IID_PPV_ARGS(&m_pso)));
 
-	if (!m_renderItemLayers[static_cast<UINT>(BlendType::transparent)].empty()) {
-		D3D12_GRAPHICS_PIPELINE_STATE_DESC transparentDesc = opaqueDesc;
-		D3D12_RENDER_TARGET_BLEND_DESC transparentBlendDesc;
-		transparentBlendDesc.BlendEnable = true; // 选择启用常规混合或逻辑混合
-		transparentBlendDesc.LogicOpEnable = false;
-		transparentBlendDesc.SrcBlend = D3D12_BLEND_SRC_ALPHA; // 指定源混合因子
-		transparentBlendDesc.DestBlend = D3D12_BLEND_INV_SRC_ALPHA; // 指定目标混合因子
-		transparentBlendDesc.BlendOp = D3D12_BLEND_OP_ADD; // 指定RGB混合方式
-		transparentBlendDesc.SrcBlendAlpha = D3D12_BLEND_ONE; // 指定alpha混合时的源混合因子
-		transparentBlendDesc.DestBlendAlpha = D3D12_BLEND_ZERO; // 指定alpha混合时的目标混合因子
-		transparentBlendDesc.BlendOpAlpha = D3D12_BLEND_OP_ADD; // 指定Alpha混合方式
-		transparentBlendDesc.LogicOp = D3D12_LOGIC_OP_NOOP; // 指定逻辑混合方式
-		transparentBlendDesc.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL; // 指定颜色遮罩
-		transparentDesc.BlendState.RenderTarget[0] = std::move(transparentBlendDesc);
-		ThrowIfFailed(m_d3dDevice->CreateGraphicsPipelineState(&transparentDesc, IID_PPV_ARGS(&m_pso["Transparent"])));
-	}
-
-	// 设置alpha测试的描述
-	if (!m_renderItemLayers[static_cast<UINT>(BlendType::alpha)].empty()) {
-		D3D12_GRAPHICS_PIPELINE_STATE_DESC alphaDesc = opaqueDesc;
-		alphaDesc.VS = {
-			static_cast<BYTE*>(m_shader["Alpha"]->GetShaderByType(ShaderPos::vertex)->GetBufferPointer()),
-			m_shader["Alpha"]->GetShaderByType(ShaderPos::vertex)->GetBufferSize() };
-		alphaDesc.PS = {
-			static_cast<BYTE*>(m_shader["Alpha"]->GetShaderByType(ShaderPos::fragment)->GetBufferPointer()),
-		m_shader["Alpha"]->GetShaderByType(ShaderPos::fragment)->GetBufferSize() };
-		alphaDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
-		ThrowIfFailed(m_d3dDevice->CreateGraphicsPipelineState(&alphaDesc, IID_PPV_ARGS(&m_pso["Alpha"])));
-	}
-
-	//// 设置镜像的模板状态和深度状态
-	//if (!m_renderItemLayers[static_cast<UINT>(BlendType::mirror)].empty())
-	//{
-	//	// 禁止对渲染目标执行写入操作
-	//	CD3DX12_BLEND_DESC mirrorBlendState(D3D12_DEFAULT);
-	//	D3D12_DEPTH_STENCIL_DESC mirrorStencilDesc;
-	//	mirrorStencilDesc.DepthEnable = true;
-	//	mirrorStencilDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
-	//	mirrorStencilDesc.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
-	//	mirrorStencilDesc.StencilEnable = true;
-	//	mirrorStencilDesc.StencilReadMask = 0xff;
-	//	mirrorStencilDesc.StencilWriteMask = 0xff;
-	//	mirrorStencilDesc.FrontFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;
-	//	mirrorStencilDesc.FrontFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
-	//	mirrorStencilDesc.FrontFace.StencilPassOp = D3D12_STENCIL_OP_REPLACE;
-	//	mirrorStencilDesc.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS;
-	//	// 暂时不考虑背面朝向的多边形
-	//	mirrorStencilDesc.BackFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;
-	//	mirrorStencilDesc.BackFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
-	//	mirrorStencilDesc.BackFace.StencilPassOp = D3D12_STENCIL_OP_REPLACE;
-	//	mirrorStencilDesc.BackFace.StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS;
-
-	//	D3D12_GRAPHICS_PIPELINE_STATE_DESC mirrorDesc = opaqueDesc;
-	//	mirrorDesc.BlendState = mirrorBlendState;
-	//	mirrorDesc.DepthStencilState = mirrorStencilDesc;
-	//	ThrowIfFailed(m_d3dDevice->CreateGraphicsPipelineState(&mirrorDesc, IID_PPV_ARGS(&m_pso["Mirror"])));
-	//}
-
-	//if (!m_renderItemLayers[static_cast<UINT>(BlendType::reflective)].empty())
-	//{
-	//	/*
-	//	 * 用于渲染模板缓冲中反射镜相的PSO
-	//	 */
-	//	D3D12_DEPTH_STENCIL_DESC reflectionStencilDesc;
-	//	reflectionStencilDesc.DepthEnable = true;
-	//	reflectionStencilDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
-	//	reflectionStencilDesc.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
-	//	reflectionStencilDesc.StencilEnable = true;
-	//	reflectionStencilDesc.StencilReadMask = 0xff;
-	//	reflectionStencilDesc.StencilWriteMask = 0xff;
-
-	//	reflectionStencilDesc.FrontFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
-	//	reflectionStencilDesc.FrontFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;
-	//	reflectionStencilDesc.FrontFace.StencilPassOp = D3D12_STENCIL_OP_KEEP;
-	//	reflectionStencilDesc.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_EQUAL;
-	//	reflectionStencilDesc.BackFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
-	//	reflectionStencilDesc.BackFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;
-	//	reflectionStencilDesc.BackFace.StencilPassOp = D3D12_STENCIL_OP_KEEP;
-	//	reflectionStencilDesc.BackFace.StencilFunc = D3D12_COMPARISON_FUNC_EQUAL;
-
-	//	D3D12_GRAPHICS_PIPELINE_STATE_DESC reflectiveDesc = opaqueDesc;
-	//	
-	//	reflectiveDesc.VS = {
-	//		static_cast<BYTE*>(m_shader["Reflect"]->GetShaderByType(ShaderPos::vertex)->GetBufferPointer()),
-	//		m_shader["Reflect"]->GetShaderByType(ShaderPos::vertex)->GetBufferSize() };
-	//	reflectiveDesc.PS = {
-	//		static_cast<BYTE*>(m_shader["Reflect"]->GetShaderByType(ShaderPos::fragment)->GetBufferPointer()),
-	//	m_shader["Reflect"]->GetShaderByType(ShaderPos::fragment)->GetBufferSize() };
-
-	//	reflectiveDesc.DepthStencilState = reflectionStencilDesc;
-	//	reflectiveDesc.RasterizerState.CullMode = D3D12_CULL_MODE_BACK;
-	//	reflectiveDesc.RasterizerState.FrontCounterClockwise = true; // 指定三角形怎样旋转朝向的方向才是正面
-	//	ThrowIfFailed(m_d3dDevice->CreateGraphicsPipelineState(&reflectiveDesc, IID_PPV_ARGS(&m_pso["Reflective"])));
-	//}
-	
 	m_skybox->InitPSO(m_d3dDevice.Get(), opaqueDesc);
 	m_dynamicCube->InitPSO(opaqueDesc);
 	m_shadow->InitPSO(opaqueDesc);
 	m_blur->InitPSO(opaqueDesc);
+	m_toneMap->InitPSO(opaqueDesc);
 }
 
 void BoxApp::CreateFrameResources()
@@ -662,7 +522,7 @@ void BoxApp::CreateRenderItems()
 	m_renderItems.emplace_back(std::move(box));
 
 	auto grid = std::make_unique<RenderItem>();
-	grid->EmplaceBack();
+	grid->EmplaceBack(XMFLOAT3(0.0f, 1.0f, 0.0f)), std::move(XMFLOAT3(10.0f, 10.0f, 10.0f));
 	grid->m_mesh = m_meshGeos["Total"].get();
 	grid->m_matIndex = m_material->m_data["Grid"]->materialCBIndex;
 	grid->m_type = m_material->m_data["Grid"]->type;
@@ -723,6 +583,7 @@ void BoxApp::CreateTextures()
 	m_dynamicCube->InitSRV("CubeMap");
 	m_shadow->InitSRV("ShadowMap");
 	m_blur->InitTexture();
+	m_toneMap->InitTexture();
 }
 
 void BoxApp::CreateMaterials()
@@ -745,7 +606,7 @@ auto BoxApp::CreateStaticSampler2D() -> std::array<const CD3DX12_STATIC_SAMPLER_
 	const CD3DX12_STATIC_SAMPLER_DESC linearClamp(3, D3D12_FILTER_MIN_MAG_MIP_LINEAR, D3D12_TEXTURE_ADDRESS_MODE_CLAMP, D3D12_TEXTURE_ADDRESS_MODE_CLAMP, D3D12_TEXTURE_ADDRESS_MODE_CLAMP);
 	const CD3DX12_STATIC_SAMPLER_DESC anisotropicWrap(4, D3D12_FILTER_ANISOTROPIC, D3D12_TEXTURE_ADDRESS_MODE_WRAP, D3D12_TEXTURE_ADDRESS_MODE_WRAP, D3D12_TEXTURE_ADDRESS_MODE_WRAP);
 	const CD3DX12_STATIC_SAMPLER_DESC anisotropicClamp(5, D3D12_FILTER_ANISOTROPIC, D3D12_TEXTURE_ADDRESS_MODE_CLAMP, D3D12_TEXTURE_ADDRESS_MODE_CLAMP, D3D12_TEXTURE_ADDRESS_MODE_CLAMP, 0.0f, 8);
-	const CD3DX12_STATIC_SAMPLER_DESC shadowSampler(6, D3D12_FILTER_COMPARISON_MIN_LINEAR_MAG_MIP_POINT, D3D12_TEXTURE_ADDRESS_MODE_BORDER, D3D12_TEXTURE_ADDRESS_MODE_BORDER, D3D12_TEXTURE_ADDRESS_MODE_BORDER, 0.0f, 16, D3D12_COMPARISON_FUNC_LESS_EQUAL, D3D12_STATIC_BORDER_COLOR_OPAQUE_BLACK, 0.0f, 8);
+	const CD3DX12_STATIC_SAMPLER_DESC shadowSampler(6, D3D12_FILTER_COMPARISON_MIN_LINEAR_MAG_MIP_POINT, D3D12_TEXTURE_ADDRESS_MODE_BORDER, D3D12_TEXTURE_ADDRESS_MODE_BORDER, D3D12_TEXTURE_ADDRESS_MODE_BORDER, 0.0f, 16, D3D12_COMPARISON_FUNC_LESS_EQUAL, D3D12_STATIC_BORDER_COLOR_OPAQUE_WHITE, 0.0f, 8);
 
 	return { pointWrap, pointClamp, linearWrap, linearClamp, anisotropicWrap, anisotropicClamp, shadowSampler };
 }
@@ -831,28 +692,22 @@ void BoxApp::DrawPostProcess(ID3D12GraphicsCommandList* cmdList) {
 	// 将后台缓冲区的数据拷贝到显存
 	// 执行完毕后将数据从默认缓冲区拷贝到内存缓冲区中
 	m_blur->Draw(cmdList, [&](UINT) {
-		{
-			const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(GetCurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE);
-			cmdList->ResourceBarrier(1, &trans);
-		}
-		{
-			const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(m_blur->GetResourceDownSampler(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST);
-			cmdList->ResourceBarrier(1, &trans);
-		}
-		cmdList->CopyResource(m_blur->GetResourceDownSampler(), GetCurrentBackBuffer());
-		{
-			const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(m_blur->GetResourceDownSampler(),D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ);
-			cmdList->ResourceBarrier(1, &trans);
-		}
+		m_toneMap->SetBloomState<1, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE>(cmdList);
+		ChangeState<D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST>(cmdList, m_blur->GetResourceDownSampler());
+		cmdList->CopyResource(m_blur->GetResourceDownSampler(), m_toneMap->GetBloomRes<1>());
+		ChangeState<D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ>(cmdList, m_blur->GetResourceDownSampler());
+		m_toneMap->SetBloomState<1, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET>(cmdList);
 	});
-	
+
+	ChangeState<D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_GENERIC_READ>(cmdList, m_blur->GetResourceUpSampler());
+	m_toneMap->Draw(cmdList, [&](UINT)
 	{
-		const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(GetCurrentBackBuffer(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
-		cmdList->ResourceBarrier(1, &trans);
-	}
-	cmdList->CopyResource(GetCurrentBackBuffer(), m_blur->GetResourceUpSampler());
-	{
-		const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(GetCurrentBackBuffer(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PRESENT);
-		cmdList->ResourceBarrier(1, &trans);
-	}
+			cmdList->SetComputeRootDescriptorTable(3, m_blur->GetUpSamplerSRV());
+	});
+	ChangeState<D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_COMMON>(cmdList, m_blur->GetResourceUpSampler());
+
+	ChangeState<D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_DEST>(cmdList, GetCurrentBackBuffer());
+	cmdList->CopyResource(GetCurrentBackBuffer(), m_toneMap->GetResource());
+	m_toneMap->SetResourceState<D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_COMMON>(cmdList);
+	ChangeState<D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PRESENT>(cmdList, GetCurrentBackBuffer());
 }

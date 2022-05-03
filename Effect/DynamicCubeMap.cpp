@@ -41,10 +41,7 @@ void Effect::DynamicCubeMap::Draw(ID3D12GraphicsCommandList* cmdList, const std:
 	cmdList->RSSetViewports(1, &m_viewport);
 	cmdList->RSSetScissorRects(1, &m_scissorRect);
 	// 将立方体图资源转换为RENDER_TARGET
-	{
-		const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(m_resource.Get(), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_RENDER_TARGET);
-		cmdList->ResourceBarrier(1, &trans);
-	}
+	ChangeState<D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_RENDER_TARGET>(cmdList, m_resource.Get());
 	for (UINT i = 0U; i < 6U; ++i)
 	{
 		// 清理后台缓冲区与深度缓冲区
@@ -56,10 +53,7 @@ void Effect::DynamicCubeMap::Draw(ID3D12GraphicsCommandList* cmdList, const std:
 		drawFunc(i);
 	}
 
-	{
-		const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(m_resource.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_GENERIC_READ);
-		cmdList->ResourceBarrier(1, &trans);
-	}
+	ChangeState<D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_GENERIC_READ>(cmdList, m_resource.Get());
 }
 
 void Effect::DynamicCubeMap::InitShader(const std::wstring& binaryName) {

@@ -34,7 +34,6 @@ void Effect::GaussianBlur::InitPSO(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& tem
 
 void Effect::GaussianBlur::InitRootSignature()
 {
-	PostProcessMgr::instance().Init(m_device.Get());
 	m_signature = PostProcessMgr::instance().GetRootSignature();
 	m_DownUp->InitRootSignature();
 }
@@ -58,21 +57,18 @@ void Effect::GaussianBlur::CreateDescriptors(D3D12_CPU_DESCRIPTOR_HANDLE cpuDesc
 
 void Effect::GaussianBlur::Draw(ID3D12GraphicsCommandList* cmdList, const std::function<void(UINT)>& drawFunc) const {
 	cmdList->SetComputeRootSignature(PostProcessMgr::instance().GetRootSignature());
-	cmdList->SetComputeRoot32BitConstants(0, m_weights.size(), m_weights.data(), 0);
-	cmdList->SetComputeRoot32BitConstants(0, m_offsets.size(), m_offsets.data(), m_weights.size());
 	float texSize[4] = { static_cast<float>(m_shrinkWidth), static_cast<float>(m_shrinkHeight),
 		static_cast<float>(m_invWidth), static_cast<float>(m_invHeight) };
-	cmdList->SetComputeRoot32BitConstants(0, 4, &texSize, m_weights.size() + m_offsets.size());
+	cmdList->SetComputeRoot32BitConstants(0, 4, &texSize, 0);
+	cmdList->SetComputeRoot32BitConstants(0, m_weights.size(), m_weights.data(), 4);
+	cmdList->SetComputeRoot32BitConstants(0, m_offsets.size(), m_offsets.data(), 4 + m_weights.size());
 
 	drawFunc(NULL);
 
 	m_DownUp->SubDraw<TexSizeChange::DownSampler>(cmdList, m_resource.Get());
 
 	// 开始进行真正地模糊操作
-	{
-		const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(m_resource1.Get(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-		cmdList->ResourceBarrier(1, &trans);
-	}
+	ChangeState<D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_UNORDERED_ACCESS>(cmdList, m_resource1.Get());
 	for (UINT i = 0; i < m_blurCount; ++i)
 	{
 		// Horizontal blur
@@ -107,14 +103,8 @@ void Effect::GaussianBlur::Draw(ID3D12GraphicsCommandList* cmdList, const std::f
 	*/
 	m_DownUp->SubDraw<TexSizeChange::UpSampler>(cmdList, m_gpuSRV);
 
-	{
-		const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(m_resource.Get(), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_COMMON);
-		cmdList->ResourceBarrier(1, &trans);
-	}
-	{
-		const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(m_resource1.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COMMON);
-		cmdList->ResourceBarrier(1, &trans);
-	}
+	ChangeState<D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_COMMON>(cmdList, m_resource.Get());
+	ChangeState<D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COMMON>(cmdList, m_resource1.Get());
 }
 
 void Effect::GaussianBlur::Update(const GameTimer& timer, const std::function<void(UINT, PassConstant&)>& updateFunc) {
@@ -142,6 +132,11 @@ ID3D12Resource* Effect::GaussianBlur::GetResourceDownSampler() const {
 ID3D12Resource* Effect::GaussianBlur::GetResourceUpSampler() const
 {
 	return m_DownUp->GetUpSamplerResource();
+}
+
+CD3DX12_GPU_DESCRIPTOR_HANDLE Effect::GaussianBlur::GetUpSamplerSRV() const
+{
+	return m_DownUp->GetUpSamplerSRV();
 }
 
 void Effect::GaussianBlur::CreateDescriptors() {
@@ -192,11 +187,9 @@ void Effect::GaussianBlur::CreateResources() {
 }
 
 void Effect::GaussianBlur::SetUnorderedAccess(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* blurMap) const {
-	const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(blurMap, D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-	cmdList->ResourceBarrier(1, &trans);
+	ChangeState<D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_UNORDERED_ACCESS>(cmdList, blurMap);
 }
 
 void Effect::GaussianBlur::SetGenericRead(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* blurMap) const {
-	const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(blurMap, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_GENERIC_READ);
-	cmdList->ResourceBarrier(1, &trans);
+	ChangeState<D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_GENERIC_READ>(cmdList, blurMap);
 }

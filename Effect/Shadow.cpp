@@ -87,10 +87,7 @@ void Effect::Shadow::Draw(ID3D12GraphicsCommandList* cmdList, const std::functio
 	cmdList->RSSetViewports(1, &m_viewport);
 	cmdList->RSSetScissorRects(1, &m_scissorRect);
 	// 为深度写入模式
-	{
-		const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(m_resource.Get(), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_DEPTH_WRITE);
-		cmdList->ResourceBarrier(1, &trans);
-	}
+	ChangeState<D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_DEPTH_WRITE>(cmdList, m_resource.Get());
 	// 清除深度缓冲区和后台缓冲区
 	cmdList->ClearDepthStencilView(m_cpuDSV, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
 	// 要将渲染目标设置为空,从而禁止颜色数据写入
@@ -99,10 +96,7 @@ void Effect::Shadow::Draw(ID3D12GraphicsCommandList* cmdList, const std::functio
 	drawFunc(0);
 
 	// 结束深度写入状态
-	{
-		const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(m_resource.Get(), D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_GENERIC_READ);
-		cmdList->ResourceBarrier(1, &trans);
-	}
+	ChangeState<D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_GENERIC_READ>(cmdList, m_resource.Get());
 }
 
 void Effect::Shadow::InitShader(const std::wstring& binaryName) {
@@ -122,8 +116,9 @@ void Effect::Shadow::InitPSO(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& templateD
 	m_shader->GetShaderByType(ShaderPos::vertex)->GetBufferSize() };
 	shadowDesc.PS = {static_cast<BYTE*>(m_shader->GetShaderByType(ShaderPos::fragment)->GetBufferPointer()),m_shader->GetShaderByType(ShaderPos::fragment)->GetBufferSize() };
 	// shadow map不需要render target
-	shadowDesc.RTVFormats[0] = DXGI_FORMAT_UNKNOWN;
 	shadowDesc.NumRenderTargets = 0;
+	shadowDesc.RTVFormats[0] = DXGI_FORMAT_UNKNOWN;
+	shadowDesc.RTVFormats[1] = DXGI_FORMAT_UNKNOWN;
 	ThrowIfFailed(m_device->CreateGraphicsPipelineState(&shadowDesc, IID_PPV_ARGS(&m_pso)));
 }
 

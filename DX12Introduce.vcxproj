@@ -201,9 +201,12 @@
     <ClInclude Include="Effect\RenderToTexture.h" />
     <ClInclude Include="Effect\Shadow.h" />
     <ClInclude Include="Effect\TexSizeChange.h" />
+    <ClInclude Include="Effect\ToneMap.h" />
     <ClInclude Include="Expansion\BoxApp.h" />
     <ClInclude Include="Expansion\Camera.h" />
+    <ClInclude Include="Expansion\EffectHeader.h" />
     <ClInclude Include="Expansion\FrameResource.h" />
+    <ClInclude Include="Expansion\GenerateMipMap.hpp" />
     <ClInclude Include="Expansion\Light.h" />
     <ClInclude Include="Expansion\Material.h" />
     <ClInclude Include="Expansion\Scene.h" />
@@ -228,6 +231,7 @@
     <ClCompile Include="Effect\RenderToTexture.cpp" />
     <ClCompile Include="Effect\Shadow.cpp" />
     <ClCompile Include="Effect\TexSizeChange.cpp" />
+    <ClCompile Include="Effect\ToneMap.cpp" />
     <ClCompile Include="Expansion\BoxApp.cpp" />
     <ClCompile Include="Expansion\Camera.cpp" />
     <ClCompile Include="Expansion\FrameResource.cpp" />

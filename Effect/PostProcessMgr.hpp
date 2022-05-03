@@ -44,17 +44,20 @@ inline void PostProcessMgr::InitRootSignature()
 {
 	CD3DX12_DESCRIPTOR_RANGE srvTable;
 	srvTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
+	CD3DX12_DESCRIPTOR_RANGE srvTable1;
+	srvTable1.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 1);
 	CD3DX12_DESCRIPTOR_RANGE uavTable;
 	uavTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0);
 	// 创建根参数
-	CD3DX12_ROOT_PARAMETER parameters[3]{};
+	CD3DX12_ROOT_PARAMETER parameters[4]{};
 	parameters[0].InitAsConstants(12, 0);
 	parameters[1].InitAsDescriptorTable(1, &srvTable);
 	parameters[2].InitAsDescriptorTable(1, &uavTable);
+	parameters[3].InitAsDescriptorTable(1, &srvTable1);
 
 	auto sampler = GetStaticSampler();
 	//组成根签名
-	CD3DX12_ROOT_SIGNATURE_DESC rootDesc(3U, parameters, sampler.size(), sampler.data(), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+	CD3DX12_ROOT_SIGNATURE_DESC rootDesc(4U, parameters, sampler.size(), sampler.data(), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 	ComPtr<ID3DBlob> serializeRootSig{ nullptr };
 	ComPtr<ID3DBlob> error{ nullptr };
 	auto res = D3D12SerializeRootSignature(&rootDesc, D3D_ROOT_SIGNATURE_VERSION_1, serializeRootSig.GetAddressOf(), error.GetAddressOf());

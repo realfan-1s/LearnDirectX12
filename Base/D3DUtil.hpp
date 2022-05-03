@@ -16,6 +16,9 @@ inline constexpr int dirLightNum = 3;
 inline constexpr int spotLightNum = 0;
 inline constexpr int pointLightNum = 0;
 
+template <D3D12_RESOURCE_STATES TBefore, D3D12_RESOURCE_STATES TAfter>
+inline void ChangeState(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* res);
+
 class D3DUtil {
 public:
 	/*
@@ -60,19 +63,9 @@ public:
 		 * UpdateSubresource会先将数据从CPU端的内存复制到中介位置的上传堆
 		 * 再通过调用ID3D12CommandList::CopySubresourceRegion函数复制到m_buffer中
 		 */
-		{
-			const auto& trans1 = CD3DX12_RESOURCE_BARRIER::Transition(
-															ans.Get(),
-															D3D12_RESOURCE_STATE_COMMON,
-															D3D12_RESOURCE_STATE_COPY_DEST);
-			cmdList->ResourceBarrier(1, &trans1);
-			UpdateSubresources<1>(cmdList, ans.Get(), uploadBuffer.Get(), 0, 0, 1, &subresource_data); // 命令列表；目标资源；中间资源；中间资源偏移；中间资源起始点；资源中的子资源数
-			const auto& trans2 = CD3DX12_RESOURCE_BARRIER::Transition(
-													ans.Get(),
-													D3D12_RESOURCE_STATE_COPY_DEST,
-													D3D12_RESOURCE_STATE_GENERIC_READ);
-			cmdList->ResourceBarrier(1, &trans2);
-		}
+		ChangeState<D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST>(cmdList, ans.Get());
+		UpdateSubresources<1>(cmdList, ans.Get(), uploadBuffer.Get(), 0, 0, 1, &subresource_data); // 命令列表；目标资源；中间资源；中间资源偏移；中间资源起始点；资源中的子资源数
+		ChangeState<D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ>(cmdList, ans.Get());
 		return ans;
 	}
 	// 若常量缓冲区中存储的是随不同物体而异的常量数据，绘制n个物体就需要好n个常量缓冲区,需要将常量缓冲区大小对齐256B
@@ -149,3 +142,10 @@ inline HashID StringToID(std::string_view str)
 	if(FAILED(hr)) {throw DxException(hr, L#x, wfn, __LINE__);}\
 }
 #endif
+
+template <D3D12_RESOURCE_STATES TBefore, D3D12_RESOURCE_STATES TAfter>
+inline void ChangeState(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* res)
+{
+	const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(res, TBefore, TAfter);
+	cmdList->ResourceBarrier(1, &trans);
+}
