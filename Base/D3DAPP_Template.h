@@ -509,7 +509,7 @@ protected:
 	}
 	void CreateCommandObjects()
 	{
-			D3D12_COMMAND_QUEUE_DESC desc = {};
+		D3D12_COMMAND_QUEUE_DESC desc = {};
 		desc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT; // 存储的是一系列可供GPU直接执行的命令， D3D12_COMMAND_LIST_TYPE_BUNDLE将命令列表打包
 		desc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
 		m_d3dDevice->CreateCommandQueue(&desc, IID_PPV_ARGS(&m_commandQueue)); // 获取commandQueue的ID并进行强制类型转换

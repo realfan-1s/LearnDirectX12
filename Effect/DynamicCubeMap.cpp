@@ -17,6 +17,7 @@ void Effect::DynamicCubeMap::CreateDescriptors(D3D12_CPU_DESCRIPTOR_HANDLE srvCp
 		m_cpuRtv[i] = CD3DX12_CPU_DESCRIPTOR_HANDLE(rtvCpuStart, i + rtvOffset, rtvSize);
 	}
 	CreateDescriptors();
+	InitDepthAndStencil();
 }
 
 void Effect::DynamicCubeMap::Update(const GameTimer& timer, const std::function<void(UINT, PassConstant&)>& updateFunc) {
@@ -94,6 +95,36 @@ void Effect::DynamicCubeMap::InitCamera(float x, float y, float z)
 		m_cams[i].SetFrustum(0.5f * XM_PI, 1.0f, 0.1f, 1000.0f);
 		m_cams[i].Update();
 	}
+}
+
+void Effect::DynamicCubeMap::InitDSV(CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandler) {
+	m_cpuDSV = dsvHandler;
+}
+
+void Effect::DynamicCubeMap::InitDepthAndStencil() {
+	D3D12_RESOURCE_DESC dsDesc;
+	dsDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	dsDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	dsDesc.Alignment = 0;
+	dsDesc.Width = m_width;
+	dsDesc.Height = m_height;
+	dsDesc.DepthOrArraySize = 1;
+	dsDesc.MipLevels = 1;
+	dsDesc.SampleDesc.Count = 1;
+	dsDesc.SampleDesc.Quality = 0;
+	dsDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	dsDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+
+	D3D12_CLEAR_VALUE optClear;
+	optClear.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	optClear.DepthStencil.Depth = 1.0f;
+	optClear.DepthStencil.Stencil = 0;
+	{
+		const auto& properties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+		ThrowIfFailed(m_device->CreateCommittedResource(&properties, D3D12_HEAP_FLAG_NONE, &dsDesc, D3D12_RESOURCE_STATE_DEPTH_WRITE, &optClear, IID_PPV_ARGS(m_depthStencilRes.GetAddressOf())));
+	}
+
+	m_device->CreateDepthStencilView(m_depthStencilRes.Get(), nullptr, m_cpuDSV);
 }
 
 // 为dynamic cube map真正创建描述符

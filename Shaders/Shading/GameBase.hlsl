@@ -49,6 +49,7 @@ struct WorldConstant
     float4x4 g_proj;
     float4x4 g_vp;
     float4x4 shadowTansform;
+    float4x4 g_viewPortRay;
     float    g_nearZ;
     float    g_farZ;
     float    g_deltaTime;
@@ -69,16 +70,17 @@ SamplerState            linearClamp      : register(s3);
 SamplerState            anisotropicWrap  : register(s4);
 SamplerState            anisotropicClamp : register(s5);
 SamplerComparisonState  shadowSampler    : register(s6);
+SamplerState            gsamDepthMap     : register(s7);
 
 TextureCube g_skybox : register(t0);
-Texture2D g_shadow : register(t1);
-Texture2D g_modelTexture[256] : register(t2);
-TextureCube g_pointShadow : register(t3);
-ConstantBuffer<WorldConstant> cbPass : register(b0);
 // 为所有的实例都创建一个存有实例的结构化缓冲区并绑定相应的数据，通过SV_InstanceID作为索引查找
-// 将此结构化缓冲区放置在space1中，纹理数组不会与之重叠，因为这个缓冲区位于space1位置
 StructuredBuffer<Material> cbMaterial : register(t0, space1);
+Texture2D g_shadow : register(t1);
+// 将此结构化缓冲区放置在space1中，纹理数组不会与之重叠，因为这个缓冲区位于space1位置
 StructuredBuffer<ObjectInstance> instanceData : register(t1, space1);
+Texture2D g_modelTexture[256] : register(t2);
+Texture2D gBuffer[3] : register(t2, space1);
+ConstantBuffer<WorldConstant> cbPass : register(b0);
 
 float GGX(float ndoth, float r2);
 float Geometry(float ndotv, float ndotl, float r2);
@@ -94,8 +96,9 @@ float3 ComputeLighting(Light lights[MAX_LIGHTS], MaterialData mat, float3 pos, f
 float3 ACESToneMapping(float3 color);
 float3 CalcByTBN(float3 normSample, float3 normalW, float3 tangentW);
 float ShadowFilterByPCF(float4 shadowPos);
-float ShadoFilterByPCSS(float4 shadowPos);
-float FindBlocker(float3 fragToLight, float currDepth, float bias, float farPlaneSize, float3 dir);
+//TODO:finish PCSS
+// float ShadoFilterByPCSS(float4 shadowPos);
+// float FindBlocker(float3 fragToLight, float currDepth, float bias, float farPlaneSize, float3 dir);
 
 float GGX(float ndoth, float r2){
     float r4 = r2 * r2;
@@ -143,7 +146,7 @@ float3 PhysicalShading(MaterialData mat, float ndotv, float ndotl, float ndoth, 
     kd *= 1.0f - mat.metalness;
     float3 diffuse = kd * INV_PI * mat.albedo;
 
-    float3 specular = fresnel * GGX(ndoth, r2) * Geometry(ndotv, ndotl, r2);
+    float3 specular = fresnel * GGX(ndoth, r2) * Geometry_UE(ndotv, ndotl, r2);
     float3 result = (diffuse + specular) * ndotl;
     return result;
 }
@@ -252,39 +255,39 @@ float ShadowFilterByPCF(float4 shadowPos){
     return ans;
 }
 
-float FindBlocker(float3 fragToLight, float currDepth, float bias, float farPlaneSize, float3 dir){
-    uint blocker = 0;
-	float result = 0.0;
-	float r = farPlaneSize * cbPass.g_nearZ / cbPass.g_farZ;
+// float FindBlocker(float3 fragToLight, float currDepth, float bias, float farPlaneSize, float3 dir){
+//     uint blocker = 0;
+// 	float result = 0.0;
+// 	float r = farPlaneSize * cbPass.g_nearZ / cbPass.g_farZ;
 
-    const float3 offset[27] = {
-        float3(-1, -1, -1), float3(-1, -1, 0), float3(-1, -1, 1),
-        float3(-1, 0, -1),  float3(-1, 0, 0),  float3(-1, 0, 1),
-        float3(-1, 1, -1),  float3(-1, 1, 0),  float3(-1, 1, 1),
-        float3(0, -1, -1),  float3(0, -1, 0),  float3(0, -1, 1),
-        float3(0, 0, -1),   float3(0, 0, 0),   float3(0, 0, 1),
-        float3(0, 1, -1),   float3(0, 1, 0),   float3(0, 1, 1),
-        float3(1, -1, -1),  float3(1, -1, 0),  float3(1, -1, 1),
-        float3(1, 0, -1),   float3(1, 0, 0),   float3(1, 0, 1),
-        float3(1, 1, -1),   float3(1, 1, 0),   float3(1, 1, 1)
-    };
+//     const float3 offset[27] = {
+//         float3(-1, -1, -1), float3(-1, -1, 0), float3(-1, -1, 1),
+//         float3(-1, 0, -1),  float3(-1, 0, 0),  float3(-1, 0, 1),
+//         float3(-1, 1, -1),  float3(-1, 1, 0),  float3(-1, 1, 1),
+//         float3(0, -1, -1),  float3(0, -1, 0),  float3(0, -1, 1),
+//         float3(0, 0, -1),   float3(0, 0, 0),   float3(0, 0, 1),
+//         float3(0, 1, -1),   float3(0, 1, 0),   float3(0, 1, 1),
+//         float3(1, -1, -1),  float3(1, -1, 0),  float3(1, -1, 1),
+//         float3(1, 0, -1),   float3(1, 0, 0),   float3(1, 0, 1),
+//         float3(1, 1, -1),   float3(1, 1, 0),   float3(1, 1, 1)
+//     };
 
-    [unroll]
-	for (int i = 0; i < 27; ++i) {
-        currDepth /= cbPass.g_farZ;
-        currDepth -= bias;
-		float compareRes = g_pointShadow.SampleCmpLevelZero(shadowSampler, dir + offset[i], currDepth).r;
-        result += compareRes;
-		compareRes == 1.0f ? blocker++ : blocker;
-	}
-	return blocker == 0 ? -1 : result / blocker;
+//     [unroll]
+// 	for (int i = 0; i < 27; ++i) {
+//         currDepth /= cbPass.g_farZ;
+//         currDepth -= bias;
+// 		float compareRes = g_shadow.SampleCmpLevelZero(shadowSampler, dir + offset[i], currDepth).r;
+//         result += compareRes;
+// 		compareRes == 1.0f ? blocker++ : blocker;
+// 	}
+// 	return blocker == 0 ? -1 : result / blocker;
 
-}
+// }
 
-float ShadoFilterByPCSS(float4 shadowPos){
-    float ans = 0.0f;
-    return ans;
-}
+// float ShadoFilterByPCSS(float4 shadowPos){
+//     float ans = 0.0f;
+//     return ans;
+// }
 
 float CalcLuma(float3 col) {
 	return dot(col, float3(0.2126f, 0.7152f, 0.0722f));

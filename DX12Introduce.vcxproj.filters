@@ -9,10 +9,6 @@
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
     </Filter>
-    <Filter Include="资源文件">
-      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
-      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
-    </Filter>
     <Filter Include="头文件\Base">
       <UniqueIdentifier>{df21ff78-fef7-42cc-a84a-5d83215599fa}</UniqueIdentifier>
     </Filter>
@@ -36,6 +32,16 @@
     </Filter>
     <Filter Include="源文件\Effect\PostProcess">
       <UniqueIdentifier>{a8472de7-14ab-4199-885a-89e8813ccc61}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\Expansion\Renderer">
+      <UniqueIdentifier>{cc05c06f-d173-426c-b34d-7a974bb5ef9c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\Expansion\Renderer">
+      <UniqueIdentifier>{09162e43-6b47-4df9-8188-3eed65ba5ab3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\资源文件">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -141,6 +147,18 @@
     <ClInclude Include="Expansion\EffectHeader.h">
       <Filter>头文件\Effect</Filter>
     </ClInclude>
+    <ClInclude Include="Expansion\Renderer\DeferShading.h">
+      <Filter>头文件\Expansion\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Expansion\Renderer\RenderTypeTraits.h">
+      <Filter>头文件\Expansion\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Expansion\Renderer\IRenderer.h">
+      <Filter>头文件\Expansion\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Expansion\Renderer\GBuffer.h">
+      <Filter>头文件\Expansion\Renderer</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Base\D3DApp.cpp">
@@ -209,18 +227,24 @@
     <ClCompile Include="Effect\ToneMap.cpp">
       <Filter>源文件\Effect\PostProcess</Filter>
     </ClCompile>
+    <ClCompile Include="Expansion\Renderer\DeferShading.cpp">
+      <Filter>源文件\Expansion\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Expansion\Renderer\GBuffer.cpp">
+      <Filter>源文件\Expansion\Renderer</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="DX12Introduce.rc">
-      <Filter>资源文件</Filter>
+      <Filter>源文件\资源文件</Filter>
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
     <Image Include="small.ico">
-      <Filter>资源文件</Filter>
+      <Filter>源文件\资源文件</Filter>
     </Image>
     <Image Include="DX12Introduce.ico">
-      <Filter>资源文件</Filter>
+      <Filter>源文件\资源文件</Filter>
     </Image>
   </ItemGroup>
 </Project>

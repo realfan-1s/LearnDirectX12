@@ -26,16 +26,13 @@ public:
 	D3D12_VIEWPORT GetViewPort() const;
 	D3D12_RECT GetScissorRect() const;
 	ID3D12PipelineState* GetPSO() const;
-	std::optional<UINT> GetSrvIdx(std::string_view name);
 
-	void OnResize(UINT newWidth, UINT newHeight);
-	void InitDepthAndStencil(ID3D12GraphicsCommandList* cmdList);
-	// TODO:需要没有回调的重载版本
+	virtual void OnResize(UINT newWidth, UINT newHeight);
 	virtual void Update(const GameTimer& timer, const std::function<void(UINT, PassConstant&)>& updateFunc) = 0;
 	virtual void Draw(ID3D12GraphicsCommandList* cmdList, const std::function<void(UINT)>& drawFunc) const = 0;
 	virtual void InitPSO(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& templateDesc) = 0;
 	void InitSRV(std::string_view name);
-	void InitDSV(CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandler);
+	std::optional<UINT> GetSrvIdx(std::string_view name);
 protected:
 	template <typename T>
 	using ComPtr = Microsoft::WRL::ComPtr<T>;
@@ -49,7 +46,6 @@ protected:
 
 	CD3DX12_CPU_DESCRIPTOR_HANDLE	m_cpuSRV;
 	CD3DX12_GPU_DESCRIPTOR_HANDLE	m_gpuSRV;
-	CD3DX12_CPU_DESCRIPTOR_HANDLE	m_cpuDSV;
 	D3D12_VIEWPORT					m_viewport;
 	D3D12_RECT						m_scissorRect;
 	DXGI_FORMAT						m_format;

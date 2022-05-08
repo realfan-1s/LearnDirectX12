@@ -9,6 +9,8 @@
 #include "Material.h"
 #include <array>
 #include "EffectHeader.h"
+#include "Renderer/DeferShading.h"
+#include "Renderer/GBuffer.h"
 
 using namespace DirectX;
 using namespace Template;
@@ -49,7 +51,7 @@ private:
 	void CreateRenderItems();
 	void CreateTextures();
 	void CreateMaterials();
-	auto CreateStaticSampler2D() -> std::array<const CD3DX12_STATIC_SAMPLER_DESC, 7>;
+	auto CreateStaticSampler2D() -> std::array<const CD3DX12_STATIC_SAMPLER_DESC, 8>;
 
 	void UpdateObjectInstance(const GameTimer& timer);
 	void UpdatePassConstant(const GameTimer& timer); 
@@ -60,29 +62,27 @@ private:
 	void DrawPostProcess(ID3D12GraphicsCommandList* cmdList);
 
 	// cbuffer常量缓冲区，可以被着色器程序所引用,通常是CPU每帧更新一次。因此需要将常量缓冲区存在上传堆而非默认堆中，且常量缓冲区大小必须是硬件最小分配空间(256B)的整数倍
-	std::vector<std::unique_ptr<FrameResource>>			m_frame_cBuffer;
+	ComPtr<ID3D12RootSignature>							m_rootSignature{ nullptr };
 	FrameResource*										m_currFrameResource{ nullptr };
-	int													m_currFrameResourceIndex{ 0 };
+	std::vector<std::unique_ptr<FrameResource>>			m_frame_cBuffer;
 	std::vector<std::unique_ptr<RenderItem>>			m_renderItems;
 	std::vector<RenderItem*>							m_renderItemLayers[static_cast<UINT>(BlendType::Count)];
 	PassConstant										m_currPassCB;
-	UINT												m_cbvOffset{ 0 };
-
-	ComPtr<ID3D12RootSignature>							m_rootSignature{ nullptr };
-	// ComPtr<ID3D12DescriptorHeap>						m_cbvHeap{ nullptr };
+	int													m_currFrameResourceIndex{ 0 };
 
 	unordered_map<string, std::unique_ptr<Mesh>>		m_meshGeos;
 	std::shared_ptr<Material>							m_material{ nullptr };
-	ComPtr<ID3D12PipelineState>							m_pso;
 	std::vector<std::shared_ptr<Light>>					m_lights;
 
 	POINT												m_lastMousePos;
-	unique_ptr<Shader>									m_shader;
 	std::unique_ptr<Effect::CubeMap>					m_skybox;
 	std::unique_ptr<Effect::DynamicCubeMap>				m_dynamicCube;
 	std::unique_ptr<Effect::Shadow>						m_shadow;
 
 	std::unique_ptr<Effect::GaussianBlur>				m_blur;
 	std::unique_ptr<Effect::ToneMap>					m_toneMap;
+
+	std::unique_ptr<Renderer::IRenderer>				m_renderer;
+	std::unique_ptr<Renderer::GBuffer>					gBuffer;
 };   
 

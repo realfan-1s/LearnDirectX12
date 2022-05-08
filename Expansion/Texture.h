@@ -39,7 +39,7 @@ public:
 	void Init(ID3D12Device* __restrict currDevice, ID3D12CommandQueue* __restrict cmdQueue);
 	bool InsertDDSTexture(std::string_view name, const std::wstring& fileName);
 	void GenerateSRVHeap();
-	void RegisterRenderToTexture(std::string_view name);
+	UINT RegisterRenderToTexture(std::string_view name);
 	ID3D12DescriptorHeap* GetSRVDescriptorHeap() const;
 	std::optional<UINT> GetRegisterType(std::string_view name);
 	size_t Size() const;

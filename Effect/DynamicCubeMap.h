@@ -19,11 +19,14 @@ public:
 	void InitShader(const std::wstring& binaryName);
 	void InitPSO(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& templateDesc) override;
 	void InitCamera(float x, float y, float z);
+	void InitDSV(CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandler);
 protected:
+	void InitDepthAndStencil();
 	void CreateDescriptors() override;
 	void CreateResources() override;
 private:
 	CD3DX12_CPU_DESCRIPTOR_HANDLE	m_cpuRtv[6];
+	CD3DX12_CPU_DESCRIPTOR_HANDLE	m_cpuDSV;
 	FirstPersonCamera				m_cams[6];
 	std::unique_ptr<Shader>			m_shader;
 };

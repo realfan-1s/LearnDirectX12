@@ -50,6 +50,7 @@ struct PassConstant
 	XMFLOAT4X4	proj_gpu{ MathHelper::MathHelper::identity4x4() };
 	XMFLOAT4X4	vp_gpu{ MathHelper::MathHelper::identity4x4() };
 	XMFLOAT4X4  shadowTransform_gpu{ MathHelper::MathHelper::identity4x4() };
+	XMFLOAT4X4	viewPortRay_gpu{ MathHelper::MathHelper::identity4x4() };
 	float		nearZ_gpu{ 0.0f };
 	float		farZ_gpu{ 1.0f };
 	float		deltaTime_gpu{ 0.0f };

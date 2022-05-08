@@ -209,6 +209,10 @@
     <ClInclude Include="Expansion\GenerateMipMap.hpp" />
     <ClInclude Include="Expansion\Light.h" />
     <ClInclude Include="Expansion\Material.h" />
+    <ClInclude Include="Expansion\Renderer\DeferShading.h" />
+    <ClInclude Include="Expansion\Renderer\GBuffer.h" />
+    <ClInclude Include="Expansion\Renderer\IRenderer.h" />
+    <ClInclude Include="Expansion\Renderer\RenderTypeTraits.h" />
     <ClInclude Include="Expansion\Scene.h" />
     <ClInclude Include="Expansion\Texture.h" />
     <ClInclude Include="Expansion\Vertex.h" />
@@ -237,6 +241,8 @@
     <ClCompile Include="Expansion\FrameResource.cpp" />
     <ClCompile Include="Expansion\Light.cpp" />
     <ClCompile Include="Expansion\Material.cpp" />
+    <ClCompile Include="Expansion\Renderer\DeferShading.cpp" />
+    <ClCompile Include="Expansion\Renderer\GBuffer.cpp" />
     <ClCompile Include="Expansion\Scene.cpp" />
     <ClCompile Include="Expansion\Texture.cpp" />
   </ItemGroup>

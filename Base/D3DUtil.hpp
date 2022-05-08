@@ -134,6 +134,24 @@ inline HashID StringToID(std::string_view str)
 	return hash(str);
 }
 
+inline HashID StringToID(const std::string& str)
+{
+	static std::hash<std::string> hash;
+	return hash(str);
+}
+
+inline HashID StringToID(std::wstring_view str)
+{
+	static std::hash<std::wstring_view> hash;
+	return hash(str);
+}
+
+inline HashID StringToID(const std::wstring& str)
+{
+	static std::hash<std::wstring> hash;
+	return hash(str);
+}
+
 #ifndef ThrowIfFailed
 #define ThrowIfFailed(x)\
 {                       \

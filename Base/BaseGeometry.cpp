@@ -313,6 +313,39 @@ BaseMeshData BaseGeometry::CreateGrid(float width, float depth, uint32_t m, uint
     return meshData;
 }
 
+BaseMeshData BaseGeometry::CreateCanvas() {
+	BaseMeshData data;
+	constexpr XMFLOAT2 uv[4] =
+	{
+	    XMFLOAT2(0.0f, 1.0f),
+	    XMFLOAT2(0.0f, 0.0f),
+	    XMFLOAT2(1.0f, 0.0f),
+	    XMFLOAT2(1.0f, 1.0f)
+	};
+	constexpr XMFLOAT3 pos[4] =
+	{
+		XMFLOAT3(2.0f * uv[0].x - 1.0f, 1.0f - 2.0f * uv[0].y, 0.0f),
+		XMFLOAT3(2.0f * uv[1].x - 1.0f, 1.0f - 2.0f * uv[1].y, 0.0f),
+		XMFLOAT3(2.0f * uv[2].x - 1.0f, 1.0f - 2.0f * uv[2].y, 0.0f),
+		XMFLOAT3(2.0f * uv[3].x - 1.0f, 1.0f - 2.0f * uv[3].y, 0.0f),
+	};
+	data.VBOs.resize(4);
+	data.EBOs.resize(6);
+	for (int i = 0; i < 4; ++i)
+	{
+		data.VBOs[i].pos = pos[i];
+		data.VBOs[i].tex = uv[i];
+	}
+
+	data.EBOs[0] = 0;
+	data.EBOs[1] = 1;
+	data.EBOs[2] = 2;
+	data.EBOs[3] = 0;
+	data.EBOs[4] = 2;
+	data.EBOs[5] = 3;
+	return data;
+}
+
 void BaseGeometry::Subdivide(BaseMeshData& meshData)
 {
 	// Save a copy of  the input geometry.

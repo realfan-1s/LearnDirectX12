@@ -2,7 +2,6 @@
 
 Camera::Camera() : m_transform(std::make_shared<Transform>())
 {
-	SetFrustum(0.25f * XM_PI, 1.0f, 1.0f, 1000.0f);
 }
 
 const XMFLOAT3& Camera::GetCurrPos() const
@@ -99,7 +98,7 @@ XMFLOAT4X4 Camera::GetCurrVP() const
 
 XMMATRIX Camera::GetCurrVPXM() const
 {
-	return GetCurrViewXM() * GetCurrProjXM();
+	return XMMatrixMultiply(GetCurrViewXM(), GetCurrProjXM());
 }
 
 const XMFLOAT4X4& Camera::GetPreviousVP() const
@@ -110,6 +109,63 @@ const XMFLOAT4X4& Camera::GetPreviousVP() const
 XMMATRIX Camera::GetPreviousVPXM() const
 {
 	return DirectX::XMLoadFloat4x4(&m_previousVP);
+}
+
+XMMATRIX Camera::GetInvProjXM() const {
+	return XMMatrixInverse(&XMMatrixDeterminant(GetCurrProjXM()), GetCurrProjXM());
+}
+
+XMFLOAT4X4 Camera::GetInvProj() const {
+	XMFLOAT4X4 ans;
+	XMStoreFloat4x4(&ans, GetInvProjXM());
+	return ans;
+}
+
+XMMATRIX Camera::GetInvViewXM() const {
+	return XMMatrixInverse(&XMMatrixDeterminant(GetCurrViewXM()), GetCurrViewXM());
+}
+
+XMFLOAT4X4 Camera::GetInvView() const {
+	XMFLOAT4X4 ans;
+	XMStoreFloat4x4(&ans, GetInvViewXM());
+	return ans;
+}
+
+XMMATRIX Camera::GetInvVPXM() const {
+	return XMMatrixInverse(&XMMatrixDeterminant(GetCurrVPXM()), GetCurrVPXM());
+}
+
+XMFLOAT4X4 Camera::GetInvVP() const {
+	XMFLOAT4X4 ans;
+	XMStoreFloat4x4(&ans, GetInvVPXM());
+	return ans;
+}
+
+XMMATRIX Camera::GetViewPortRayXM() const {
+	float halfHeight = 0.5f * m_nearWndHeight;
+	float halfWidth = halfHeight * m_aspect;
+	auto toTop = GetCurrUpXM() * halfHeight;
+	auto toRight = GetCurrRightXM() * halfWidth;
+	auto topLeft = GetCurrForwardXM() * m_nearPlane + toTop - toRight;
+	//auto scale = XMVector3Length(topLeft) / m_nearPlane;
+	//topLeft = XMVector3Normalize(topLeft);
+	//topLeft *= scale;
+	auto topRight = GetCurrForwardXM() * m_nearPlane + toTop + toRight;
+	//topRight = XMVector3Normalize(topRight);
+	//topRight *= scale;
+	auto bottomRight = GetCurrForwardXM() * m_nearPlane - toTop + toRight;
+	//bottomRight = XMVector3Normalize(bottomRight);
+	//bottomRight *= scale;
+	auto bottomLeft = GetCurrForwardXM() * m_nearPlane - toTop - toRight;
+	//bottomLeft = XMVector3Normalize(bottomLeft);
+	//bottomLeft *= scale;
+	return  { topLeft, topRight, bottomRight, bottomLeft };
+}
+
+XMFLOAT4X4 Camera::GetViewPortRay() const {
+	XMFLOAT4X4 ans;
+	XMStoreFloat4x4(&ans, GetViewPortRayXM());
+	return ans;
 }
 
 void Camera::SetFrustum(float fov, float aspect, float nearZ, float farZ)

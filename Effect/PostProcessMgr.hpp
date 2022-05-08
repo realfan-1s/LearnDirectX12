@@ -32,7 +32,7 @@ public:
 	}
 private:
 	void InitRootSignature();
-	auto GetStaticSampler()->std::array<CD3DX12_STATIC_SAMPLER_DESC, 6> const;
+	auto GetStaticSampler()->std::array<const CD3DX12_STATIC_SAMPLER_DESC, 6> const;
 private:
 	template <typename T>
 	using ComPtr = Microsoft::WRL::ComPtr<T>;
@@ -74,7 +74,7 @@ inline ID3D12RootSignature* PostProcessMgr::GetRootSignature() const
 	return m_rootSignature.Get();
 }
 
-inline auto PostProcessMgr::GetStaticSampler()->std::array<CD3DX12_STATIC_SAMPLER_DESC, 6> const
+inline auto PostProcessMgr::GetStaticSampler()->std::array<const CD3DX12_STATIC_SAMPLER_DESC, 6> const
 {
 	const CD3DX12_STATIC_SAMPLER_DESC pointWrap(0, D3D12_FILTER_MIN_MAG_MIP_POINT, D3D12_TEXTURE_ADDRESS_MODE_WRAP, D3D12_TEXTURE_ADDRESS_MODE_WRAP, D3D12_TEXTURE_ADDRESS_MODE_WRAP, D3D12_TEXTURE_ADDRESS_MODE_WRAP);
 	const CD3DX12_STATIC_SAMPLER_DESC pointClamp(1, D3D12_FILTER_COMPARISON_MIN_LINEAR_MAG_MIP_POINT, D3D12_TEXTURE_ADDRESS_MODE_CLAMP, D3D12_TEXTURE_ADDRESS_MODE_CLAMP, D3D12_TEXTURE_ADDRESS_MODE_CLAMP);

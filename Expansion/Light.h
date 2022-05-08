@@ -13,6 +13,12 @@ struct LightData
 	float				spotPower;
 };
 
+enum LightType {
+	directional = 0,
+	spot = 1,
+	point = 2
+};
+
 class Light
 {
 public:

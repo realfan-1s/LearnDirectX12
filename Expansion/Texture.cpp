@@ -75,14 +75,15 @@ void TextureMgr::GenerateSRVHeap()
 	}
 }
 
-void TextureMgr::RegisterRenderToTexture(std::string_view name)
+UINT TextureMgr::RegisterRenderToTexture(std::string_view name)
 {
 	HashID id = StringToID(name);
 	if (m_textureID.count(id))
 	{
-		return;
+		return m_textureID[id];
 	}
 	m_textureID[id] = numDescriptor++;
+	return m_textureID[id];
 }
 
 ID3D12DescriptorHeap* TextureMgr::GetSRVDescriptorHeap() const

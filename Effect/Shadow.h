@@ -30,6 +30,7 @@ protected:
 	void CreateDescriptors() override;
 	void CreateResources() override;
 private:
+	CD3DX12_CPU_DESCRIPTOR_HANDLE	m_cpuDSV;
 	const Light*			m_mainLight;
 	XMMATRIX				m_shadowTransform;
 	std::unique_ptr<Shader> m_shader;

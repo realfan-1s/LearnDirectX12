@@ -54,6 +54,14 @@ public:
 	XMMATRIX			GetCurrVPXM() const;
 	const XMFLOAT4X4&	GetPreviousVP() const;
 	XMMATRIX			GetPreviousVPXM() const;
+	XMMATRIX			GetInvProjXM() const;
+	XMFLOAT4X4			GetInvProj() const;
+	XMMATRIX			GetInvViewXM() const;
+	XMFLOAT4X4			GetInvView() const;
+	XMMATRIX			GetInvVPXM() const;
+	XMFLOAT4X4			GetInvVP() const;
+	XMMATRIX			GetViewPortRayXM() const;
+	XMFLOAT4X4			GetViewPortRay() const;
 
 	void SetFrustum(float fov, float aspect, float nearZ, float farZ);
 	void SetViewPort(const D3D12_VIEWPORT& viewport);

@@ -1,5 +1,4 @@
 #include "BoxApp.h"
-
 #include <DirectXColors.h>
 #include <vector>
 #include <DirectXMath.h>
@@ -8,6 +7,7 @@
 #include <xstring>
 #include <dxgi1_6.h>
 #include <d3dcommon.h>
+#include <iostream>
 #include "BaseGeometry.h"
 #include "Texture.h"
 #include <ObjLoader.h>
@@ -57,6 +57,8 @@ BoxApp::~BoxApp()
 void BoxApp::Resize()
 {
 	D3DApp_Template::Resize(*this);
+	gBuffer->Resize(m_clientWidth, m_clientHeight);
+	m_renderer->OnResize(m_clientWidth, m_clientHeight);
 	m_blur->OnResize(m_clientWidth, m_clientHeight);
 	m_toneMap->OnResize(m_clientWidth, m_clientHeight);
 }
@@ -94,7 +96,7 @@ void BoxApp::DrawScene(const GameTimer& timer)
 {
 	auto alloc = m_currFrameResource->m_commandAllocator;
 	ThrowIfFailed(alloc->Reset());
-	ThrowIfFailed(m_commandList->Reset(alloc.Get(), m_pso.Get()));
+	ThrowIfFailed(m_commandList->Reset(alloc.Get(), gBuffer->m_pso.Get()));
 
 	// 将根签名和CBV/SRV堆设置到命令队列上
 	ID3D12DescriptorHeap* descriptorSRVHeaps[] = { TextureMgr::instance().GetSRVDescriptorHeap() };
@@ -106,10 +108,6 @@ void BoxApp::DrawScene(const GameTimer& timer)
 	m_commandList->SetGraphicsRootShaderResourceView(2, matBuffer->GetGPUVirtualAddress());
 	// textureBuffer传递
 	m_commandList->SetGraphicsRootDescriptorTable(3, TextureMgr::instance().GetSRVDescriptorHeap()->GetGPUDescriptorHandleForHeapStart());
-	// 向GPU中传递skybox纹理
-	auto skyboxSRVHandler = CD3DX12_GPU_DESCRIPTOR_HANDLE(TextureMgr::instance().GetSRVDescriptorHeap()->GetGPUDescriptorHandleForHeapStart());
-	skyboxSRVHandler.Offset(m_skybox->GetStaticID(), m_cbvUavDescriptorSize);
-	m_commandList->SetGraphicsRootDescriptorTable(4, skyboxSRVHandler);
 
 	/*
 	 * 实时离屏渲染绘制
@@ -127,33 +125,46 @@ void BoxApp::DrawScene(const GameTimer& timer)
 	m_commandList->RSSetScissorRects(1, &m_scissorRect);
 
 	ChangeState<D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET>(m_commandList.Get(), GetCurrentBackBuffer());
+	gBuffer->RefreshGBuffer(m_commandList.Get());
 	m_commandList->ClearRenderTargetView(GetCurrentBackBufferView(), Colors::LightSteelBlue, 0, nullptr);
 	m_commandList->ClearDepthStencilView(GetDepthStencilView(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,1.0f, 0, 0, nullptr);
 
 	// 指定渲染缓冲区
 	{
 		const auto& depthStencilView = GetDepthStencilView();
-		m_commandList->OMSetRenderTargets(2, &m_toneMap->GetRenderTarget<0>(), true, &depthStencilView);
+		m_commandList->OMSetRenderTargets(3, &gBuffer->gBufferRTV[0], true, &depthStencilView);
 	}
 
-	//ID3D12DescriptorHeap* descriptorHeaps[] = { m_cbvHeap.Get() };
-	//m_commandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
-	//int passIndex = m_cbvOffset + m_currFrameResourceIndex;
+	// 通过传参的方式将CBV和某个根描述符相互绑定
+	m_commandList->SetPipelineState(gBuffer->m_pso.Get());
+	auto passCB = m_currFrameResource->m_passCBuffer->GetResource();
+	auto address = passCB->GetGPUVirtualAddress();
+	m_commandList->SetGraphicsRootConstantBufferView(0, address);
+	DrawRenderItems(m_commandList.Get(), m_renderItemLayers[static_cast<UINT>(BlendType::opaque)]);
 
-	//auto passCBVHandler = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_cbvHeap->GetGPUDescriptorHandleForHeapStart());
-	//passCBVHandler.Offset(passIndex, m_cbvUavDescriptorSize);
-	//m_commandList->SetGraphicsRootDescriptorTable(1, passCBVHandler);
+	for (int i = 0; i < 3; ++i)
+	{
+		ChangeState<D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_GENERIC_READ>(m_commandList.Get(), gBuffer->gBufferRes[i].Get());
+	}
+	// 向GPU中传递skybox纹理
+	auto skyboxSRVHandler = CD3DX12_GPU_DESCRIPTOR_HANDLE(TextureMgr::instance().GetSRVDescriptorHeap()->GetGPUDescriptorHandleForHeapStart());
+	skyboxSRVHandler.Offset(m_skybox->GetStaticID(), m_cbvUavDescriptorSize);
+	m_commandList->SetGraphicsRootDescriptorTable(4, skyboxSRVHandler);
+	// 向GPU中传递shadow纹理
 	auto shadowSRVHandler = CD3DX12_GPU_DESCRIPTOR_HANDLE(TextureMgr::instance().GetSRVDescriptorHeap()->GetGPUDescriptorHandleForHeapStart());
 	shadowSRVHandler.Offset(m_shadow->GetSrvIdx("ShadowMap").value_or(0), m_cbvUavDescriptorSize);
 	m_commandList->SetGraphicsRootDescriptorTable(5, shadowSRVHandler);
-
-	// 通过传参的方式将CBV和某个根描述符相互绑定
-	m_commandList->SetPipelineState(m_pso.Get());
-	auto passCB = m_currFrameResource->m_passCBuffer->GetResource(); 
-	m_commandList->SetGraphicsRootConstantBufferView(0, passCB->GetGPUVirtualAddress());
-	DrawRenderItems(m_commandList.Get(), m_renderItemLayers[static_cast<UINT>(BlendType::opaque)]); 
+	auto gBufferSRVHandler = CD3DX12_GPU_DESCRIPTOR_HANDLE(TextureMgr::instance().GetSRVDescriptorHeap()->GetGPUDescriptorHandleForHeapStart());
+	gBufferSRVHandler.Offset(gBuffer->albedoIdx, m_cbvUavDescriptorSize);
+	m_commandList->SetGraphicsRootDescriptorTable(6, gBufferSRVHandler);
+	m_renderer->Draw(m_commandList.Get(), [](UINT){});
 	m_commandList->SetPipelineState(m_skybox->GetPSO());
 	DrawRenderItems(m_commandList.Get(), m_renderItemLayers[static_cast<UINT>(BlendType::skybox)]);
+
+	for (int i = 0; i < 3; ++i)
+	{
+		ChangeState<D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_RENDER_TARGET>(m_commandList.Get(), gBuffer->gBufferRes[i].Get());
+	}
 
 	// 按照资源的用途指示其状态的转变，将渲染目标状态转换为呈现状态
 	DrawPostProcess(m_commandList.Get());
@@ -215,16 +226,15 @@ void BoxApp::OnKeyboardInput(const GameTimer& timer)
 }
 
 void BoxApp::CreateRtvAndDsvDescriptorHeaps() {
-	// 为立方体渲染目标添加六个RTV
+	// TODO:numDescriptors Of RTV and DSV need register
 	D3D12_DESCRIPTOR_HEAP_DESC rtvDesc;
 	rtvDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-	rtvDesc.NumDescriptors = m_swapBufferCount + 8;
+	rtvDesc.NumDescriptors = m_swapBufferCount + 3 + 8;
 	rtvDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 	rtvDesc.NodeMask = 0;
 	ThrowIfFailed(m_d3dDevice->CreateDescriptorHeap(&rtvDesc, IID_PPV_ARGS(m_rtvHeap.GetAddressOf())));
-	// 新增个两个DSV
 	D3D12_DESCRIPTOR_HEAP_DESC dsvDesc;
-	dsvDesc.NumDescriptors = 3;
+	dsvDesc.NumDescriptors = 4;
 	dsvDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
 	dsvDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 	dsvDesc.NodeMask = 0;
@@ -233,6 +243,8 @@ void BoxApp::CreateRtvAndDsvDescriptorHeaps() {
 }
 
 void BoxApp::CreateOffScreenRendering() {
+	gBuffer = std::make_unique<Renderer::GBuffer>(m_d3dDevice.Get(), m_clientWidth, m_clientHeight, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_R32_FLOAT, DXGI_FORMAT_R16G16B16A16_UNORM);
+	m_renderer = std::make_unique<Renderer::DeferShading>(m_d3dDevice.Get(), m_clientWidth, m_clientHeight, m_backBufferFormat);
 	m_shadow = std::make_unique<Effect::Shadow>(m_d3dDevice.Get(), 2048U, DXGI_FORMAT_R24G8_TYPELESS);
 	m_dynamicCube = std::make_unique<Effect::DynamicCubeMap>(m_d3dDevice.Get(), 1024U, 1024U, DXGI_FORMAT_R8G8B8A8_UNORM);
 	m_dynamicCube->InitCamera(0.0f, 2.0f, 0.0f);
@@ -259,9 +271,43 @@ void BoxApp::UpdateLUT(const GameTimer& timer)
 
 void BoxApp::DrawLUT()
 {
+	auto LUTParams = [&]() ->ComPtr<ID3D12PipelineState>
+	{
+		std::unique_ptr<Shader> temp = std::make_unique<Shader>(default_shader, L"Shaders\\Forward", initializer_list<D3D12_INPUT_ELEMENT_DESC>({
+			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+			{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+			{"TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+			{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 36, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0}}));
+		ComPtr<ID3D12PipelineState> luts;
+		D3D12_GRAPHICS_PIPELINE_STATE_DESC lutDesc{};
+		ZeroMemory(&lutDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
+		lutDesc.InputLayout = { temp->GetInputLayouts(), temp->GetInputLayoutSize() };
+		lutDesc.pRootSignature = m_rootSignature.Get();
+		lutDesc.VS = {
+			static_cast<BYTE*>(temp->GetShaderByType(ShaderPos::vertex)->GetBufferPointer()),
+			temp->GetShaderByType(ShaderPos::vertex)->GetBufferSize()
+		};
+		lutDesc.PS = {
+			static_cast<BYTE*>(temp->GetShaderByType(ShaderPos::fragment)->GetBufferPointer()),
+			temp->GetShaderByType(ShaderPos::fragment)->GetBufferSize()
+		};
+		lutDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+		lutDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+		lutDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+		lutDesc.SampleMask = UINT_MAX;
+		lutDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+		lutDesc.NumRenderTargets = 2u;
+		lutDesc.RTVFormats[0] = m_backBufferFormat;
+		lutDesc.RTVFormats[1] = m_backBufferFormat;
+		lutDesc.SampleDesc.Count = m_msaaState ? 4u : 1u;
+		lutDesc.SampleDesc.Quality = m_msaaState ? (m_msaaQuality - 1u) : 0u;
+		lutDesc.DSVFormat = m_depthStencilFormat;
+		ThrowIfFailed(m_d3dDevice->CreateGraphicsPipelineState(&lutDesc, IID_PPV_ARGS(&luts)));
+		return luts;
+	}();
 	auto alloc = m_currFrameResource->m_commandAllocator;
 	ThrowIfFailed(alloc->Reset());
-	ThrowIfFailed(m_commandList->Reset(alloc.Get(), m_pso.Get()));
+	ThrowIfFailed(m_commandList->Reset(alloc.Get(), LUTParams.Get()));
 
 	// 将根签名和CBV/SRV堆设置到命令队列上
 	ID3D12DescriptorHeap* descriptorSRVHeaps[] = { TextureMgr::instance().GetSRVDescriptorHeap() };
@@ -284,10 +330,10 @@ void BoxApp::DrawLUT()
 		auto passCB = m_currFrameResource->m_passCBuffer->GetResource();
 		auto address = passCB->GetGPUVirtualAddress() + (offset + 1) * passCBSize;
 		m_commandList->SetGraphicsRootConstantBufferView(0, address);
+		m_commandList->SetPipelineState(LUTParams.Get());
 		DrawRenderItems(m_commandList.Get(), m_renderItemLayers[static_cast<UINT>(BlendType::opaque)]);
 		m_commandList->SetPipelineState(m_skybox->GetPSO());
 		DrawRenderItems(m_commandList.Get(), m_renderItemLayers[static_cast<UINT>(BlendType::skybox)]);
-		m_commandList->SetPipelineState(m_pso.Get());
 	});
 
 	// 完成命令的记录
@@ -298,9 +344,7 @@ void BoxApp::DrawLUT()
 	// 交换前后台缓冲区
 	ThrowIfFailed(m_swapChain->Present(0, 0));
 	m_currBackBuffer = (m_currBackBuffer + 1) % m_swapBufferCount;
-	// 通过帧资源替换FlushCommandQueue,实际上无法完全避免等待状况的发生，但是命令队列保持非空，使得GPU总有任务执行
-	m_currFrameResource->m_fence = ++m_currFence;
-	m_commandQueue->Signal(m_fence.Get(), m_currFence);
+	FlushCommandQueue();
 }
 
 void BoxApp::CreateLights()
@@ -328,12 +372,14 @@ void BoxApp::CreateDescriptorHeaps()
 	auto gpuSrvStart = TextureMgr::instance().GetSRVDescriptorHeap()->GetGPUDescriptorHandleForHeapStart();
 	auto cpuRtvStart = m_rtvHeap->GetCPUDescriptorHandleForHeapStart();
 	auto dsvCpuStart = m_dsvHeap->GetCPUDescriptorHandleForHeapStart();
-	UINT rtvOffset = m_swapBufferCount;
+	UINT rtvOffset = m_swapBufferCount + 3;
+	gBuffer->CreateDescriptors(cpuSrvStart, gpuSrvStart, cpuRtvStart, m_swapBufferCount, m_cbvUavDescriptorSize, m_rtvDescriptorSize);
 	m_dynamicCube->CreateDescriptors(cpuSrvStart, gpuSrvStart, cpuRtvStart, rtvOffset, m_cbvUavDescriptorSize, m_rtvDescriptorSize);
-	m_dynamicCube->InitDepthAndStencil(m_commandList.Get());
 	m_shadow->CreateDescriptors(cpuSrvStart, gpuSrvStart, dsvCpuStart, m_cbvUavDescriptorSize, m_dsvDescriptorSize, 2);
 	m_blur->CreateDescriptors(cpuSrvStart, gpuSrvStart, m_cbvUavDescriptorSize);
-	m_toneMap->CreateDescriptors(cpuSrvStart, gpuSrvStart, cpuRtvStart, rtvOffset, m_rtvDescriptorSize, m_cbvUavDescriptorSize);
+	m_toneMap->CreateDescriptors(cpuSrvStart, gpuSrvStart, m_cbvUavDescriptorSize);
+	m_renderer->InitDSV(GetDepthStencilView());
+	m_renderer->CreateDescriptors(cpuSrvStart, cpuRtvStart, dsvCpuStart, gpuSrvStart, rtvOffset + 6, 3, m_cbvUavDescriptorSize, m_rtvDescriptorSize, m_dsvDescriptorSize);
 }
 
 // 根签名：执行绘制命令之前，应用成程序将绑定到流水线上的资源映射到对应的输入寄存器。
@@ -351,18 +397,21 @@ void BoxApp::CreateRootSignature()
 	texSRV.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 256, 2, 0);
 	CD3DX12_DESCRIPTOR_RANGE shadowSRV;
 	shadowSRV.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 1, 0);
-	CD3DX12_ROOT_PARAMETER parameters[6]{};
+	CD3DX12_DESCRIPTOR_RANGE gBufferSRV;
+	gBufferSRV.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, 2, 1);
+	CD3DX12_ROOT_PARAMETER parameters[7]{};
 	parameters[0].InitAsConstantBufferView(0); // 渲染过程的CBV
 	parameters[1].InitAsShaderResourceView(1, 1); // 物体的CBV
 	parameters[2].InitAsShaderResourceView(0, 1); // 物体材质的结构化缓冲区
 	parameters[3].InitAsDescriptorTable(1, &texSRV, D3D12_SHADER_VISIBILITY_PIXEL); // 所有纹理的位置
 	parameters[4].InitAsDescriptorTable(1, &skyboxSRV, D3D12_SHADER_VISIBILITY_PIXEL); // 天空盒的位置
 	parameters[5].InitAsDescriptorTable(1, &shadowSRV, D3D12_SHADER_VISIBILITY_PIXEL);// 阴影贴图的位置
+	parameters[6].InitAsDescriptorTable(1, &gBufferSRV, D3D12_SHADER_VISIBILITY_PIXEL); // gBuffer的位置
 
 	// 静态采样器设置
-	auto staticSampler = std::move(CreateStaticSampler2D());
+	auto staticSampler = CreateStaticSampler2D();
 	// 根签名的参数组成
-	CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc(6U, parameters, staticSampler.size(), staticSampler.data(), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+	CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc(7U, parameters, staticSampler.size(), staticSampler.data(), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 	// 创建只含有一个常量缓冲区组成的描述符区域的根签名
 	ComPtr<ID3DBlob> serialRootSig{ nullptr }; // ID3DBlob是一个普通的内存块，可以返回一个void*数据或返回缓冲区的大小
 	ComPtr<ID3DBlob> error{ nullptr };
@@ -377,20 +426,21 @@ void BoxApp::CreateRootSignature()
 	m_blur->InitRootSignature();
 }
 
-void BoxApp::CreateShadersAndInput()
-{
+void BoxApp::CreateShadersAndInput() {
 	/// <summary>
 	/// make_unique是个函数模板，只能推导传递给对象构造函数的参数类型而花括号列表是不可推导的
 	/// </summary>
-	m_shader = make_unique<Shader>(default_shader, L"Shaders\\Box",
-		initializer_list<D3D12_INPUT_ELEMENT_DESC>({{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+	gBuffer->InitShaders(std::forward_as_tuple(L"Shaders\\GBuffer", default_shader, initializer_list<D3D12_INPUT_ELEMENT_DESC>({
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 		{"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-		{"TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT,0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-		{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 36, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0}}));
+		{"TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+		{"TEXCOORD", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 36, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0}})));
 	m_shadow->InitShader(L"Shaders\\Shadow");
 	m_dynamicCube->InitShader(L"Shaders\\Skybox");
 	m_blur->InitShader(L"Shaders\\Blur_Horizontal", L"Shaders\\Blur_Vertical");
 	m_toneMap->InitShader(L"Shaders\\ToneMap_ACES");
+	m_renderer->InitShaders(std::forward_as_tuple(L"Shaders\\Box", default_shader, initializer_list<D3D12_INPUT_ELEMENT_DESC>({ {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+		{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0} })));
 }
 
 void BoxApp::CreateGeometry()
@@ -468,36 +518,28 @@ void BoxApp::CreateGeometry()
 // 流水线状态对象将输入布局描述堆、顶点着色器、像素着色器和光栅器状态组绑定到图形流水线上 
 void BoxApp::CreatePSO()
 {
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC opaqueDesc;
-	ZeroMemory(&opaqueDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
-	opaqueDesc.InputLayout = { m_shader->GetInputLayouts(), m_shader->GetInputLayoutSize() };
-	opaqueDesc.pRootSignature = m_rootSignature.Get();
-	opaqueDesc.VS = {
-		static_cast<BYTE*>(m_shader->GetShaderByType(ShaderPos::vertex)->GetBufferPointer()),
-		m_shader->GetShaderByType(ShaderPos::vertex)->GetBufferSize()
-	};
-	opaqueDesc.PS = {
-		static_cast<BYTE*>(m_shader->GetShaderByType(ShaderPos::fragment)->GetBufferPointer()),
-		m_shader->GetShaderByType(ShaderPos::fragment)->GetBufferSize()
-	};
-	opaqueDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-	opaqueDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
-	opaqueDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
-	opaqueDesc.SampleMask = UINT_MAX;
-	opaqueDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-	opaqueDesc.NumRenderTargets = 2u;
-	opaqueDesc.RTVFormats[0] = m_backBufferFormat;
-	opaqueDesc.RTVFormats[1] = m_backBufferFormat;
-	opaqueDesc.SampleDesc.Count = m_msaaState ? 4u : 1u;
-	opaqueDesc.SampleDesc.Quality = m_msaaState ? (m_msaaQuality - 1u) : 0u;
-	opaqueDesc.DSVFormat = m_depthStencilFormat;
-	ThrowIfFailed(m_d3dDevice->CreateGraphicsPipelineState(&opaqueDesc, IID_PPV_ARGS(&m_pso)));
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC templateDesc;
+	ZeroMemory(&templateDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
+	templateDesc.pRootSignature = m_rootSignature.Get();
+	templateDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+	templateDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+	templateDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+	templateDesc.SampleMask = UINT_MAX;
+	templateDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	templateDesc.NumRenderTargets = 2u;
+	templateDesc.RTVFormats[0] = m_backBufferFormat;
+	templateDesc.RTVFormats[1] = m_backBufferFormat;
+	templateDesc.SampleDesc.Count = m_msaaState ? 4u : 1u;
+	templateDesc.SampleDesc.Quality = m_msaaState ? (m_msaaQuality - 1u) : 0u;
+	templateDesc.DSVFormat = m_depthStencilFormat;
 
-	m_skybox->InitPSO(m_d3dDevice.Get(), opaqueDesc);
-	m_dynamicCube->InitPSO(opaqueDesc);
-	m_shadow->InitPSO(opaqueDesc);
-	m_blur->InitPSO(opaqueDesc);
-	m_toneMap->InitPSO(opaqueDesc);
+	gBuffer->InitPSO(templateDesc);
+	m_skybox->InitPSO(m_d3dDevice.Get(), templateDesc);
+	m_dynamicCube->InitPSO(templateDesc);
+	m_shadow->InitPSO(templateDesc);
+	m_blur->InitPSO(templateDesc);
+	m_toneMap->InitPSO(templateDesc);
+	m_renderer->InitPSO(templateDesc);
 }
 
 void BoxApp::CreateFrameResources()
@@ -577,9 +619,14 @@ void BoxApp::CreateTextures()
 	TextureMgr::instance().InsertDDSTexture("StoneNorm", TexturePath + L"Common/bricks2_nmap.dds");
 	TextureMgr::instance().InsertDDSTexture("Tile", TexturePath + L"Common/checkboard.dds");
 	TextureMgr::instance().InsertDDSTexture("TileNorm", TexturePath + L"Common/checkboard_nmap.dds");
+	m_skybox->InitStaticTex("Skybox", TexturePath + L"Skybox/grasscube1024.dds");
 	//TextureMgr::instance().InsertDDSTexture("Water", TexturePath + L"Common/water1.dds");
 	//TextureMgr::instance().InsertDDSTexture("Ice", TexturePath + L"Common/ice.dds");
-	m_skybox->InitStaticTex("Skybox", TexturePath + L"Skybox/grasscube1024.dds");
+	m_renderer->InitTexture();
+	gBuffer->albedoIdx = TextureMgr::instance().RegisterRenderToTexture("gAlbedo");
+	gBuffer->depthIdx = TextureMgr::instance().RegisterRenderToTexture("gPos");
+	gBuffer->normalIdx = TextureMgr::instance().RegisterRenderToTexture("gNormal");
+
 	m_dynamicCube->InitSRV("CubeMap");
 	m_shadow->InitSRV("ShadowMap");
 	m_blur->InitTexture();
@@ -594,7 +641,7 @@ void BoxApp::CreateMaterials()
 	m_material->CreateMaterial("Skybox", m_skybox->TexName() , 3, 1.0f, XMFLOAT3(0.1f, 0.1f, 0.1f), 0.0f, BlendType::skybox);
 }
 
-auto BoxApp::CreateStaticSampler2D() -> std::array<const CD3DX12_STATIC_SAMPLER_DESC, 7>
+auto BoxApp::CreateStaticSampler2D() -> std::array<const CD3DX12_STATIC_SAMPLER_DESC, 8>
 {
 	/*
 	 * 滤波器：常量插值和线性插值模式
@@ -607,8 +654,9 @@ auto BoxApp::CreateStaticSampler2D() -> std::array<const CD3DX12_STATIC_SAMPLER_
 	const CD3DX12_STATIC_SAMPLER_DESC anisotropicWrap(4, D3D12_FILTER_ANISOTROPIC, D3D12_TEXTURE_ADDRESS_MODE_WRAP, D3D12_TEXTURE_ADDRESS_MODE_WRAP, D3D12_TEXTURE_ADDRESS_MODE_WRAP);
 	const CD3DX12_STATIC_SAMPLER_DESC anisotropicClamp(5, D3D12_FILTER_ANISOTROPIC, D3D12_TEXTURE_ADDRESS_MODE_CLAMP, D3D12_TEXTURE_ADDRESS_MODE_CLAMP, D3D12_TEXTURE_ADDRESS_MODE_CLAMP, 0.0f, 8);
 	const CD3DX12_STATIC_SAMPLER_DESC shadowSampler(6, D3D12_FILTER_COMPARISON_MIN_LINEAR_MAG_MIP_POINT, D3D12_TEXTURE_ADDRESS_MODE_BORDER, D3D12_TEXTURE_ADDRESS_MODE_BORDER, D3D12_TEXTURE_ADDRESS_MODE_BORDER, 0.0f, 16, D3D12_COMPARISON_FUNC_LESS_EQUAL, D3D12_STATIC_BORDER_COLOR_OPAQUE_WHITE, 0.0f, 8);
+	const CD3DX12_STATIC_SAMPLER_DESC depthMapSampler(7, D3D12_FILTER_MIN_MAG_MIP_LINEAR,D3D12_TEXTURE_ADDRESS_MODE_BORDER, D3D12_TEXTURE_ADDRESS_MODE_BORDER, D3D12_TEXTURE_ADDRESS_MODE_BORDER, 0.0f,0, D3D12_COMPARISON_FUNC_LESS_EQUAL, D3D12_STATIC_BORDER_COLOR_OPAQUE_WHITE); 
 
-	return { pointWrap, pointClamp, linearWrap, linearClamp, anisotropicWrap, anisotropicClamp, shadowSampler };
+	return { pointWrap, pointClamp, linearWrap, linearClamp, anisotropicWrap, anisotropicClamp, shadowSampler, depthMapSampler };
 }
 
 void BoxApp::UpdateObjectInstance(const GameTimer& timer)
@@ -621,16 +669,16 @@ void BoxApp::UpdateObjectInstance(const GameTimer& timer)
 		item->Update(timer, currInstanceData, offset);
 		offset += item->GetInstanceSize();
 	}
-
 }
 
 void BoxApp::UpdatePassConstant(const GameTimer& timer)
 {
 	// 每一帧都要随帧资源指向变化而变化的数据，如view矩阵、Projection矩阵等
-	XMStoreFloat4x4(&m_currPassCB.view_gpu, XMMatrixTranspose(m_camera->GetCurrVPXM()));
+	XMStoreFloat4x4(&m_currPassCB.view_gpu, XMMatrixTranspose(m_camera->GetCurrViewXM()));
 	XMStoreFloat4x4(&m_currPassCB.proj_gpu, XMMatrixTranspose(m_camera->GetCurrProjXM()));
 	XMStoreFloat4x4(&m_currPassCB.vp_gpu, XMMatrixTranspose(m_camera->GetCurrVPXM()));
 	XMStoreFloat4x4(&m_currPassCB.shadowTransform_gpu, XMMatrixTranspose(m_shadow->GetShadowTransformXM()));
+	XMStoreFloat4x4(&m_currPassCB.viewPortRay_gpu, XMMatrixTranspose(m_camera->GetViewPortRayXM()));
 	m_currPassCB.nearZ_gpu = m_camera->m_nearPlane;
 	m_currPassCB.farZ_gpu = m_camera->m_farPlane;
 	m_currPassCB.deltaTime_gpu = static_cast<float>(timer.DeltaTime());
@@ -692,18 +740,21 @@ void BoxApp::DrawPostProcess(ID3D12GraphicsCommandList* cmdList) {
 	// 将后台缓冲区的数据拷贝到显存
 	// 执行完毕后将数据从默认缓冲区拷贝到内存缓冲区中
 	m_blur->Draw(cmdList, [&](UINT) {
-		m_toneMap->SetBloomState<1, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE>(cmdList);
+		m_renderer->SetBloomState<1, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE>(cmdList);
 		ChangeState<D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST>(cmdList, m_blur->GetResourceDownSampler());
-		cmdList->CopyResource(m_blur->GetResourceDownSampler(), m_toneMap->GetBloomRes<1>());
+		cmdList->CopyResource(m_blur->GetResourceDownSampler(), m_renderer->GetBloomRes());
 		ChangeState<D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ>(cmdList, m_blur->GetResourceDownSampler());
-		m_toneMap->SetBloomState<1, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET>(cmdList);
+		m_renderer->SetBloomState<1, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET>(cmdList);
 	});
 
 	ChangeState<D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_GENERIC_READ>(cmdList, m_blur->GetResourceUpSampler());
+	m_renderer->SetBloomState<0, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_GENERIC_READ>(cmdList);
 	m_toneMap->Draw(cmdList, [&](UINT)
 	{
-			cmdList->SetComputeRootDescriptorTable(3, m_blur->GetUpSamplerSRV());
+		cmdList->SetComputeRootDescriptorTable(1, m_renderer->GetBloomSRV<0>());
+		cmdList->SetComputeRootDescriptorTable(3, m_blur->GetUpSamplerSRV());
 	});
+	m_renderer->SetBloomState<0, D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_RENDER_TARGET>(cmdList);
 	ChangeState<D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_COMMON>(cmdList, m_blur->GetResourceUpSampler());
 
 	ChangeState<D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_DEST>(cmdList, GetCurrentBackBuffer());

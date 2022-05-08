@@ -9,6 +9,7 @@ public:
 	static BaseMeshData CreateCube(float width, float height, float depth, uint32_t numSubdivision);
 	static BaseMeshData CreateQuad(float x, float y, float w, float h, float depth);
 	static BaseMeshData CreateGrid(float width, float depth, uint32_t m, uint32_t n);
+	static BaseMeshData CreateCanvas();
 private:
 	static void Subdivide(BaseMeshData& meshData);
 	static Vertex_CPU MidPoint(const Vertex_CPU& v0, const Vertex_CPU& v1);
