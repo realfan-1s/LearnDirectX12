@@ -50,7 +50,7 @@ void Effect::Shadow::CreateResources()
 	// 通过D3D12_CLEAR_VALUE在创建时填充这个渲染目标的纹理
 	D3D12_CLEAR_VALUE shadowClear;
 	shadowClear.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-	shadowClear.DepthStencil.Depth = 1.0f;
+	shadowClear.DepthStencil.Depth = 0.0f;
 	shadowClear.DepthStencil.Stencil = 0;
 
 	{
@@ -78,8 +78,8 @@ void Effect::Shadow::Update(const GameTimer& timer, const std::function<void(UIN
 	shadowPass.nearZ_gpu = nearZ;
 	shadowPass.farZ_gpu = farZ;
 	shadowPass.renderTargetSize_gpu = std::move(XMFLOAT2(static_cast<float>(m_width), static_cast<float>(m_height)));
-	shadowPass.invRenderTargetSize_gpu = std::move(XMFLOAT2(1.0f / static_cast<float>(m_height), 
-		1.0f /static_cast<float>(m_width)));
+	shadowPass.invRenderTargetSize_gpu = std::move(XMFLOAT2(1.0f / static_cast<float>(m_width), 
+		1.0f /static_cast<float>(m_height)));
 	updateFunc(0, shadowPass);
 }
 
@@ -89,7 +89,7 @@ void Effect::Shadow::Draw(ID3D12GraphicsCommandList* cmdList, const std::functio
 	// 为深度写入模式
 	ChangeState<D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_DEPTH_WRITE>(cmdList, m_resource.Get());
 	// 清除深度缓冲区和后台缓冲区
-	cmdList->ClearDepthStencilView(m_cpuDSV, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
+	cmdList->ClearDepthStencilView(m_cpuDSV, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 0.0f, 0, 0, nullptr);
 	// 要将渲染目标设置为空,从而禁止颜色数据写入
 	cmdList->OMSetRenderTargets(0, nullptr, false, &m_cpuDSV);
 	cmdList->SetPipelineState(m_pso.Get());
@@ -108,9 +108,10 @@ void Effect::Shadow::InitShader(const std::wstring& binaryName) {
 void Effect::Shadow::InitPSO(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& templateDesc) {
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC shadowDesc = templateDesc;
 	// 避免自遮挡的阴影偏移依赖于实际场景
-	shadowDesc.RasterizerState.DepthBias = 100000;
+	shadowDesc.RasterizerState.DepthBias = -100000;
 	shadowDesc.RasterizerState.DepthBiasClamp = 0.0f;
-	shadowDesc.RasterizerState.SlopeScaledDepthBias = 1.0f;
+	shadowDesc.RasterizerState.SlopeScaledDepthBias = -1.0f;
+	shadowDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_GREATER_EQUAL;
 	shadowDesc.InputLayout = { m_shader->GetInputLayouts(), m_shader->GetInputLayoutSize() };
 	shadowDesc.VS = {static_cast<BYTE*>(m_shader->GetShaderByType(ShaderPos::vertex)->GetBufferPointer()),
 	m_shader->GetShaderByType(ShaderPos::vertex)->GetBufferSize() };
@@ -155,6 +156,6 @@ std::tuple<XMMATRIX, XMMATRIX, XMVECTOR, float, float> Effect::Shadow::RegisterL
 	float top = sceneCenter.y + Scene::sceneBounds.Radius;
 	float forward = sceneCenter.z - Scene::sceneBounds.Radius;
 	float back = sceneCenter.z + Scene::sceneBounds.Radius;
-	XMMATRIX lightProj = XMMatrixOrthographicOffCenterLH(left, right, bottom, top, forward, back);
-	return {lightView, lightProj, lightPos, forward, back};
+	XMMATRIX lightProj = XMMatrixOrthographicOffCenterLH(left, right, bottom, top, back, forward);
+	return {lightView, lightProj, lightPos, back, forward};
 }

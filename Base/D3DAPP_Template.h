@@ -324,7 +324,7 @@ protected:
 
 		D3D12_CLEAR_VALUE optClear;
 		optClear.Format = m_depthStencilFormat;
-		optClear.DepthStencil.Depth = 1.0f;
+		optClear.DepthStencil.Depth = 0.0f;
 		optClear.DepthStencil.Stencil = 0;
 		const auto& properties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
 		m_d3dDevice->CreateCommittedResource(
@@ -354,7 +354,7 @@ protected:
 			static_cast<float>(m_clientWidth), static_cast<float>(m_clientHeight),
 			0.0f, 1.0f);
 		m_scissorRect = { 0, 0, m_clientWidth, m_clientHeight };
-		m_camera->SetFrustum(0.25f * XM_PI, GetAspectRatio(), 1.0f, 1000.0f);
+		m_camera->SetFrustumReverseZ(XM_PI / 3, GetAspectRatio(), 0.5f, 1000.0f);
 	}
 	bool InitMainWindow() // 初始化win32主窗口
 	{

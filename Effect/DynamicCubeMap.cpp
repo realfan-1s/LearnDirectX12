@@ -30,8 +30,8 @@ void Effect::DynamicCubeMap::Update(const GameTimer& timer, const std::function<
 		XMStoreFloat3(&passCB.cameraPos_gpu, m_cams[i].GetCurrPosXM());
 		passCB.deltaTime_gpu = static_cast<float>(timer.DeltaTime());
 		passCB.totalTime_gpu = static_cast<float>(timer.TotalTime());
-		passCB.nearZ_gpu = m_viewport.MinDepth;
-		passCB.farZ_gpu = m_viewport.MaxDepth;
+		passCB.nearZ_gpu = m_viewport.MaxDepth;
+		passCB.farZ_gpu = m_viewport.MinDepth;
 		passCB.renderTargetSize_gpu = { static_cast<float>(m_width), static_cast<float>(m_height) };
 		passCB.invRenderTargetSize_gpu = { 1.0f / static_cast<float>(m_width), 1.0f / static_cast<float>(m_height) };
 		updateFunc(i, passCB);
@@ -47,7 +47,7 @@ void Effect::DynamicCubeMap::Draw(ID3D12GraphicsCommandList* cmdList, const std:
 	{
 		// 清理后台缓冲区与深度缓冲区
 		cmdList->ClearRenderTargetView(m_cpuRtv[i], Colors::LightSteelBlue, 0, nullptr);
-		cmdList->ClearDepthStencilView(m_cpuDSV, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
+		cmdList->ClearDepthStencilView(m_cpuDSV, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 0.0f, 0, 0, nullptr);
 		// 指定将要渲染的缓冲区
 		cmdList->OMSetRenderTargets(1, &m_cpuRtv[i], true, &m_cpuDSV);
 		// 为当前的立方体绑定常量缓冲区并绘制
@@ -65,7 +65,7 @@ void Effect::DynamicCubeMap::InitShader(const std::wstring& binaryName) {
 void Effect::DynamicCubeMap::InitPSO(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& templateDesc) {
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC dynamicDesc = templateDesc;
 	dynamicDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
-	dynamicDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
+	dynamicDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_GREATER_EQUAL;
 	dynamicDesc.InputLayout = { m_shader->GetInputLayouts(), m_shader->GetInputLayoutSize() };
 	dynamicDesc.VS = { static_cast<BYTE*>(m_shader->GetShaderByType(ShaderPos::vertex)->GetBufferPointer()), m_shader->GetShaderByType(ShaderPos::vertex)->GetBufferSize() };
 	dynamicDesc.PS = { static_cast<BYTE*>(m_shader->GetShaderByType(ShaderPos::fragment)->GetBufferPointer()),m_shader->GetShaderByType(ShaderPos::fragment)->GetBufferSize() };
@@ -92,7 +92,7 @@ void Effect::DynamicCubeMap::InitCamera(float x, float y, float z)
 	for (int i = 0; i < 6; ++i)
 	{
 		m_cams[i].LookAt(center, target[i], up[i]);
-		m_cams[i].SetFrustum(0.5f * XM_PI, 1.0f, 0.1f, 1000.0f);
+		m_cams[i].SetFrustumReverseZ(0.5f * XM_PI, 1.0f, 0.1f, 1000.0f);
 		m_cams[i].Update();
 	}
 }
@@ -117,7 +117,7 @@ void Effect::DynamicCubeMap::InitDepthAndStencil() {
 
 	D3D12_CLEAR_VALUE optClear;
 	optClear.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-	optClear.DepthStencil.Depth = 1.0f;
+	optClear.DepthStencil.Depth = 0.0f;
 	optClear.DepthStencil.Stencil = 0;
 	{
 		const auto& properties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);

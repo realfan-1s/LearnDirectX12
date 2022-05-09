@@ -178,7 +178,7 @@ void D3DApp::Resize() {
 
 	D3D12_CLEAR_VALUE optClear;
 	optClear.Format = m_depthStencilFormat;
-	optClear.DepthStencil.Depth = 1.0f;
+	optClear.DepthStencil.Depth = 0.0f;
 	optClear.DepthStencil.Stencil = 0;
 	const auto& properties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
 	m_d3dDevice->CreateCommittedResource(

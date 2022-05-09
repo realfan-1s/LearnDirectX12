@@ -42,6 +42,7 @@ void Renderer::GBuffer::InitPSO(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& templa
 	opaqueDesc.InputLayout = { m_shader[L"Shaders\\GBuffer"]->GetInputLayouts(), m_shader[L"Shaders\\GBuffer"]->GetInputLayoutSize() };
 	opaqueDesc.VS = { m_shader[L"Shaders\\GBuffer"]->GetShaderByType(ShaderPos::vertex)->GetBufferPointer(), m_shader[L"Shaders\\GBuffer"]->GetShaderByType(ShaderPos::vertex)->GetBufferSize() };
 	opaqueDesc.PS = { m_shader[L"Shaders\\GBuffer"]->GetShaderByType(ShaderPos::fragment)->GetBufferPointer(), m_shader[L"Shaders\\GBuffer"]->GetShaderByType(ShaderPos::fragment)->GetBufferSize() };
+	opaqueDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_GREATER_EQUAL;
 	opaqueDesc.NumRenderTargets = 3;
 	opaqueDesc.RTVFormats[0] = albedoFormat;
 	opaqueDesc.RTVFormats[1] = posFormat;

@@ -146,7 +146,7 @@ float3 PhysicalShading(MaterialData mat, float ndotv, float ndotl, float ndoth, 
     kd *= 1.0f - mat.metalness;
     float3 diffuse = kd * INV_PI * mat.albedo;
 
-    float3 specular = fresnel * GGX(ndoth, r2) * Geometry_UE(ndotv, ndotl, r2);
+    float3 specular = fresnel * GGX(ndoth, r2) * Geometry(ndotv, ndotl, r2);
     float3 result = (diffuse + specular) * ndotl;
     return result;
 }
@@ -235,9 +235,6 @@ float3 CalcByTBN(float3 normSample, float3 normalW, float3 tangentW)
 
 float ShadowFilterByPCF(float4 shadowPos){
     float ans = 0.0f;
-    shadowPos.xyz /= shadowPos.w;
-    if (shadowPos.z > 1.0f)
-        return 1.0f;
 
     uint width, height, mipLevels;
     g_shadow.GetDimensions(0, width, height, mipLevels);
@@ -249,7 +246,7 @@ float ShadowFilterByPCF(float4 shadowPos){
 
     [unroll]
     for (int i = 0; i < 9; ++i){
-        ans += g_shadow.SampleCmpLevelZero(shadowSampler, shadowPos.xy + offset[i], shadowPos.z);
+        ans += g_shadow.SampleCmp(shadowSampler, shadowPos.xy + offset[i], shadowPos.z);
     }
     ans /= 9.0f;
     return ans;

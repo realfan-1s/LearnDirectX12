@@ -17,8 +17,8 @@ void CubeMap::InitPSO(ID3D12Device* m_device, const D3D12_GRAPHICS_PIPELINE_STAT
 {
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC skyboxDesc = templateDesc;
 	skyboxDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
-	// 减少深度比较，depth func耀设置为less_equal
-	skyboxDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
+	// 减少深度比较，depth func要设置为less_equal
+	skyboxDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_GREATER_EQUAL;
 	skyboxDesc.InputLayout = { m_shader->GetInputLayouts(), m_shader->GetInputLayoutSize() };
 	skyboxDesc.VS = { static_cast<BYTE*>(m_shader->GetShaderByType(ShaderPos::vertex)->GetBufferPointer()), m_shader->GetShaderByType(ShaderPos::vertex)->GetBufferSize() };
 	skyboxDesc.PS = { static_cast<BYTE*>(m_shader->GetShaderByType(ShaderPos::fragment)->GetBufferPointer()), m_shader->GetShaderByType(ShaderPos::fragment)->GetBufferSize() };

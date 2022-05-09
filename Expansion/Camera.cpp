@@ -182,6 +182,19 @@ void Camera::SetFrustum(float fov, float aspect, float nearZ, float farZ)
 	DirectX::XMStoreFloat4x4(&m_proj, proj);
 }
 
+void Camera::SetFrustumReverseZ(float fov, float aspect, float nearZ, float farZ) {
+	m_previousVP = std::move(GetCurrVP());
+	m_fov = fov;
+	m_aspect = aspect;
+	m_nearPlane = farZ;
+	m_farPlane = nearZ;
+
+	m_nearWndHeight = 2.0f * m_nearPlane * std::tanf(0.5f * m_fov);
+	m_farWndHeight = 2.0f * m_farPlane * std::tanf(0.5f * m_fov);
+	XMMATRIX proj = XMMatrixPerspectiveFovLH(m_fov, m_aspect, m_nearPlane, m_farPlane);
+	DirectX::XMStoreFloat4x4(&m_proj, proj);
+}
+
 void Camera::SetViewPort(const D3D12_VIEWPORT& viewport)
 {
 	m_viewport = viewport;
