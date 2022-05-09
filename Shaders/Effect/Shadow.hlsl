@@ -10,8 +10,8 @@ struct input {
 
 struct v2f {
     float4 pos : SV_POSITION;
-    float2 uv : TEXCOORD;
 #ifdef ALPHA
+    float2 uv : TEXCOORD;
     // 表示不要对该索引进行插值
     nointerpolation uint matIndex : MATINDEX;
 #endif
@@ -23,8 +23,8 @@ v2f Vert(input v, uint instanceID : SV_INSTANCEID)
     ObjectInstance objectData = instanceData[instanceID];
     float4 worldFrag = mul(float4(v.vertex, 1.0f), objectData.g_model);
     o.pos = mul(worldFrag, cbPass.g_vp);
-    o.uv = mul(float4(v.uv, 0.0f, 1.0f), objectData.g_texTranform).xy;
 #ifdef ALPHA
+    o.uv = mul(float4(v.uv, 0.0f, 1.0f), objectData.g_texTranform).xy;
     o.matIndex = objectData.g_matIndex;
 #endif
     return o;

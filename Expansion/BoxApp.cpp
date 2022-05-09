@@ -243,7 +243,7 @@ void BoxApp::CreateRtvAndDsvDescriptorHeaps() {
 }
 
 void BoxApp::CreateOffScreenRendering() {
-	gBuffer = std::make_unique<Renderer::GBuffer>(m_d3dDevice.Get(), m_clientWidth, m_clientHeight, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_R32_FLOAT, DXGI_FORMAT_R16G16B16A16_UNORM);
+	gBuffer = std::make_unique<Renderer::GBuffer>(m_d3dDevice.Get(), m_clientWidth, m_clientHeight, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_R32_FLOAT, DXGI_FORMAT_R16G16B16A16_FLOAT);
 	m_renderer = std::make_unique<Renderer::DeferShading>(m_d3dDevice.Get(), m_clientWidth, m_clientHeight, m_backBufferFormat);
 	m_shadow = std::make_unique<Effect::Shadow>(m_d3dDevice.Get(), 2048U, DXGI_FORMAT_R24G8_TYPELESS);
 	m_dynamicCube = std::make_unique<Effect::DynamicCubeMap>(m_d3dDevice.Get(), 1024U, 1024U, DXGI_FORMAT_R8G8B8A8_UNORM);

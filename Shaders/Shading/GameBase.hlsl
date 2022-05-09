@@ -1,12 +1,12 @@
 #ifndef __GAME_BASE__
 #define __GAME_BASE__
 
-#define PI 3.141592653589793
-#define INV_PI 0.3183098861837907
-#define MAX_LIGHTS 16
-#define DIR_LIGHT_NUM 3
-#define SPOT_LIGHT_COUNT 0
-#define POINT_LIGHT_COUNT 0
+static const float PI = 3.141592653589793f;
+static const float INV_PI = 0.3183098861837907f;
+#define MAX_LIGHTS (16)
+#define DIR_LIGHT_NUM (3)
+#define SPOT_LIGHT_COUNT (0)
+#define POINT_LIGHT_COUNT (0)
 
 struct Light {
     float3 strength; // 光源的颜色
@@ -133,6 +133,11 @@ float3 Fresnel(float hdotv, float3 F0){
     return F0 + (1.0f - F0) * pow(1.0f - hdotv, 5.0f);
 }
 
+float3 FresnelRoughness(float ndotv, float3 f0, float roughness)
+{
+    return f0 + (max(float3(1.0f - roughness, 1.0f - roughness, 1.0f - roughness), f0) - f0) * pow(1.0f - ndotv, 5.0f);
+}
+
 float LightAttenuation(float dist, float fallOffStart, float fallOffEnd){
     return saturate((fallOffEnd - dist) / (fallOffEnd - fallOffStart));
 }
@@ -166,6 +171,7 @@ float3 ComputeDirectionalLight(Light dirLight, MaterialData mat, float3 normalDi
 
 float3 ComputeSpotLight(Light spotLight, MaterialData mat, float3 pos, float3 normalDir, float3 viewDir){
     float dist = length(spotLight.position - pos);
+    [branch]
     if (dist > spotLight.fallOfEnd)
         return 0.0f;
     float attenuation = LightAttenuation(dist, spotLight.fallOfStart, spotLight.fallOfEnd);
@@ -202,6 +208,7 @@ float3 ComputeLighting(Light lights[MAX_LIGHTS], MaterialData mat, float3 pos, f
     #if (DIR_LIGHT_NUM > 0)
         float shadowFactor[DIR_LIGHT_NUM] = {1.0f, 1.0f, 1.0f};
         shadowFactor[0] = ShadowFilterByPCF(shadowPos);
+        [loop]
         for (; i < DIR_LIGHT_NUM; ++i){
             res += shadowFactor[i] * ComputeDirectionalLight(lights[i], mat, normalDir, viewDir);
         }

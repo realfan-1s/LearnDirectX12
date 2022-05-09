@@ -81,12 +81,12 @@
     <ExternalIncludePath>E:\DirectX\DX12Introduce\DX12Introduce\Expansion;E:\DirectX\DX12Introduce\DX12Introduce\Base;$(ExternalIncludePath)</ExternalIncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LibraryPath>E:\DirectX\DX12Introduce\DX12Introduce\lib;$(LibraryPath)</LibraryPath>
-    <IncludePath>E:\DirectX\DX12Introduce\DX12Introduce\Base;E:\DirectX\DX12Introduce\DX12Introduce\Expansion;E:\DirectX\DX12Introduce\DX12Introduce\Effect;$(IncludePath)</IncludePath>
+    <LibraryPath>$(ProjectDir)lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(ProjectDir)Base;$(ProjectDir)Expansion;$(ProjectDir)Effect;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LibraryPath>E:\DirectX\DX12Introduce\DX12Introduce\lib;$(LibraryPath)</LibraryPath>
-    <IncludePath>E:\DirectX\DX12Introduce\DX12Introduce\Base;E:\DirectX\DX12Introduce\DX12Introduce\Expansion;E:\DirectX\DX12Introduce\DX12Introduce\Effect;$(IncludePath)</IncludePath>
+    <LibraryPath>$(ProjectDir)lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(ProjectDir)Base;$(ProjectDir)Expansion;$(ProjectDir)Effect;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -146,7 +146,7 @@
       <EnableParallelCodeGeneration>true</EnableParallelCodeGeneration>
       <WholeProgramOptimization>false</WholeProgramOptimization>
       <OmitFramePointers>false</OmitFramePointers>
-      <AdditionalIncludeDirectories>E:\DirectX\DX12Introduce\DX12Introduce\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -169,7 +169,7 @@
       <EnableParallelCodeGeneration>true</EnableParallelCodeGeneration>
       <WholeProgramOptimization>false</WholeProgramOptimization>
       <OmitFramePointers>false</OmitFramePointers>
-      <AdditionalIncludeDirectories>E:\DirectX\DX12Introduce\DX12Introduce\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>

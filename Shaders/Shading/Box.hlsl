@@ -22,15 +22,15 @@ struct v2f
 v2f Vert(uint vertexID : SV_VERTEXID)
 {
     v2f o;
-    float2 tex = g_uv[vertexID];
-    o.uv = tex;
+    o.uv = g_uv[vertexID];
     o.pos = float4(2.0f * o.uv.x - 1.0f, 1.0f - 2.0f * o.uv.y, 0.0f, 1.0f);
 
-    if (tex.x < 0.5f && tex.y < 0.5f)
+    [branch]
+    if (o.uv.x < 0.5f && o.uv.y < 0.5f)
         o.rayDir = cbPass.g_viewPortRay[0];
-    else if (tex.x > 0.5f && tex.y < 0.5f)
+    else if (o.uv.x > 0.5f && o.uv.y < 0.5f)
         o.rayDir = cbPass.g_viewPortRay[1];
-    else if (tex.x > 0.5f && tex.y > 0.5f)
+    else if (o.uv.x > 0.5f && o.uv.y > 0.5f)
         o.rayDir = cbPass.g_viewPortRay[2];
     else
         o.rayDir = cbPass.g_viewPortRay[3];
@@ -50,12 +50,12 @@ PixelOut Frag(v2f o)
     clip(albedo.a - 0.1f);
 #endif
     float3 ambient = albedo.xyz * cbPass.ambient;
-    float ndcZ = gBuffer[1].Sample(gsamDepthMap, o.uv).x;
+    float ndcZ = gBuffer[1].Sample(anisotropicClamp, o.uv).x;
     float viewZ = cbPass.g_proj[3][2] / (ndcZ - cbPass.g_proj[2][2]);
-    float4 frag = float4(cbPass.g_cameraPos + o.rayDir.xyz * viewZ / cbPass.g_nearZ, 1.0f);
+    float4 frag = float4(cbPass.g_cameraPos + o.rayDir.xyz * (viewZ / cbPass.g_nearZ), 1.0f);
+    float3 viewDir = normalize(cbPass.g_cameraPos - frag.xyz);
     float4 shadowPos = mul(frag, cbPass.shadowTansform);
     shadowPos.xyz /= shadowPos.w;
-    float3 viewDir = normalize(cbPass.g_cameraPos - frag.xyz);
     float4 parameter = gBuffer[2].Sample(anisotropicClamp, o.uv);
     float3 normalDir = parameter.xyz;
 

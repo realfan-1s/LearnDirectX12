@@ -13,11 +13,11 @@ RWTexture2D<float4> output : register(u0);
 float3 ACESToneMapping(float3 col);
 
 [numthreads(16, 16, 1)]
-void ACES(uint3 disptachID : SV_DISPATCHTHREADID) {
-	float4 col = rawImage[disptachID.xy] + BloomMap[disptachID.xy];
+void ACES(uint3 dispatchID : SV_DISPATCHTHREADID) {
+	float4 col = rawImage[dispatchID.xy] + BloomMap[dispatchID.xy];
 	float3 ans = ACESToneMapping(col.xyz);
 	ans = pow(abs(ans), INV_GAMMA_FACTOR);
-	output[disptachID.xy] = float4(ans, 1.0f);
+	output[dispatchID.xy] = float4(ans, 1.0f);
 }
 
 float3 ACESToneMapping(float3 col){
