@@ -189,6 +189,7 @@
     <ClInclude Include="Base\MathHelper.hpp" />
     <ClInclude Include="Base\Mesh.h" />
     <ClInclude Include="Base\ObjLoader.h" />
+    <ClInclude Include="Base\RtvDsvMgr.h" />
     <ClInclude Include="Base\Shader.h" />
     <ClInclude Include="Base\Singleton.hpp" />
     <ClInclude Include="Base\ThreadPool.hpp" />

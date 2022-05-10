@@ -1,20 +1,24 @@
 #include "DynamicCubeMap.h"
 #include <DirectXColors.h>
+#include "RtvDsvMgr.h"
 
 Effect::DynamicCubeMap::DynamicCubeMap(ID3D12Device* _device, UINT _width, UINT _height, DXGI_FORMAT _format)
 : RenderToTexture(_device, _width, _height, _format)
 {
+	m_rtvOffset = RtvDsvMgr::instance().RegisterRTV(6);
+	m_dsvOffset = RtvDsvMgr::instance().RegisterDSV(1);
 	CreateResources();
 }
 
-void Effect::DynamicCubeMap::CreateDescriptors(D3D12_CPU_DESCRIPTOR_HANDLE srvCpuStart, D3D12_GPU_DESCRIPTOR_HANDLE srvGpuStart, D3D12_CPU_DESCRIPTOR_HANDLE rtvCpuStart, UINT rtvOffset, UINT srvSize, UINT rtvSize)
+void Effect::DynamicCubeMap::CreateDescriptors(D3D12_CPU_DESCRIPTOR_HANDLE srvCpuStart, D3D12_GPU_DESCRIPTOR_HANDLE srvGpuStart, D3D12_CPU_DESCRIPTOR_HANDLE dsvCpuStart, D3D12_CPU_DESCRIPTOR_HANDLE rtvCpuStart, UINT srvSize, UINT rtvSize, UINT dsvSize)
 {
+	InitDSV(dsvCpuStart, dsvSize);
 	INT srvIndex = static_cast<UINT>(GetSrvIdx("CubeMap").value_or(0));
 	m_cpuSRV = CD3DX12_CPU_DESCRIPTOR_HANDLE(srvCpuStart, srvIndex, srvSize);
 	m_gpuSRV = CD3DX12_GPU_DESCRIPTOR_HANDLE(srvGpuStart, srvIndex, srvSize);
 	for (int i = 0 ; i < 6; ++i)
 	{
-		m_cpuRtv[i] = CD3DX12_CPU_DESCRIPTOR_HANDLE(rtvCpuStart, i + rtvOffset, rtvSize);
+		m_cpuRtv[i] = CD3DX12_CPU_DESCRIPTOR_HANDLE(rtvCpuStart, i + m_rtvOffset , rtvSize);
 	}
 	CreateDescriptors();
 	InitDepthAndStencil();
@@ -97,8 +101,8 @@ void Effect::DynamicCubeMap::InitCamera(float x, float y, float z)
 	}
 }
 
-void Effect::DynamicCubeMap::InitDSV(CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandler) {
-	m_cpuDSV = dsvHandler;
+void Effect::DynamicCubeMap::InitDSV(D3D12_CPU_DESCRIPTOR_HANDLE cpuDsvStart, UINT dsvSize) {
+	m_cpuDSV = CD3DX12_CPU_DESCRIPTOR_HANDLE(cpuDsvStart, (INT)m_dsvOffset, dsvSize);
 }
 
 void Effect::DynamicCubeMap::InitDepthAndStencil() {

@@ -1,5 +1,6 @@
 #include "GBuffer.h"
 #include "D3DUtil.hpp"
+#include "RtvDsvMgr.h"
 #include <DirectXColors.h>
 
 using namespace Renderer;
@@ -7,6 +8,7 @@ using namespace DirectX;
 
 GBuffer::GBuffer(ID3D12Device* _device, UINT _width, UINT _height, DXGI_FORMAT _albedoFormat, DXGI_FORMAT _posFormat, DXGI_FORMAT _normalFormat)
 : GBufferFormat(_albedoFormat, _posFormat, _normalFormat), m_device(_device), m_width(_width), m_height(_height) {
+	m_rtvOffset = RtvDsvMgr::instance().RegisterRTV(3);
 	CreateResources();
 }
 
@@ -20,7 +22,7 @@ void GBuffer::Resize(UINT newWidth, UINT newHeight) {
 	}
 }
 
-void GBuffer::CreateDescriptors(D3D12_CPU_DESCRIPTOR_HANDLE srvCpuStart, D3D12_GPU_DESCRIPTOR_HANDLE srvGpuStart, D3D12_CPU_DESCRIPTOR_HANDLE rtvStart, UINT rtvOffset, UINT srvSize, UINT rtvSize) {
+void GBuffer::CreateDescriptors(D3D12_CPU_DESCRIPTOR_HANDLE srvCpuStart, D3D12_GPU_DESCRIPTOR_HANDLE srvGpuStart, D3D12_CPU_DESCRIPTOR_HANDLE rtvStart, UINT srvSize, UINT rtvSize) {
 	CD3DX12_CPU_DESCRIPTOR_HANDLE srvHandler(srvCpuStart, (INT)albedoIdx, srvSize);
 	gBufferCpuSRV[0] = srvHandler;
 	gBufferCpuSRV[1] = srvHandler.Offset(1, srvSize);
@@ -29,7 +31,7 @@ void GBuffer::CreateDescriptors(D3D12_CPU_DESCRIPTOR_HANDLE srvCpuStart, D3D12_G
 	gBufferGpuSRV[0] = gpuSrvHandler;
 	gBufferGpuSRV[1] = gpuSrvHandler.Offset(1, srvSize);
 	gBufferGpuSRV[2] = gpuSrvHandler.Offset(1, srvSize);
-	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandler(rtvStart, (INT)rtvOffset, rtvSize);
+	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandler(rtvStart, (INT)m_rtvOffset, rtvSize);
 	gBufferRTV[0] = rtvHandler;
 	gBufferRTV[1] = rtvHandler.Offset(1, rtvSize);
 	gBufferRTV[2] = rtvHandler.Offset(1, rtvSize);

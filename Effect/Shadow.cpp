@@ -1,11 +1,13 @@
 #include "Shadow.h"
 #include "D3DUtil.hpp"
 #include <Scene.h>
+#include "RtvDsvMgr.h"
 
 Effect::Shadow::Shadow(ID3D12Device* _device, UINT _width, DXGI_FORMAT _format) : RenderToTexture(_device, _width, _width, _format)
 {
 	m_viewport = { 0.0f, 0.0f, static_cast<float>(_width), static_cast<float>(_width), 0.0f, 1.0f };
 	m_scissorRect = { 0, 0, static_cast<int>(_width), static_cast<int>(_width) };
+	m_dsvOffset = RtvDsvMgr::instance().RegisterDSV(1);
 	CreateResources();
 }
 
@@ -132,11 +134,11 @@ const XMMATRIX& Effect::Shadow::GetShadowTransformXM() const
 	return m_shadowTransform;
 }
 
-void Effect::Shadow::CreateDescriptors(D3D12_CPU_DESCRIPTOR_HANDLE srvCpuStart, D3D12_GPU_DESCRIPTOR_HANDLE srvGpuStart, D3D12_CPU_DESCRIPTOR_HANDLE dsvCpuStart, UINT srvSize, UINT dsvSize, UINT dsvOffset) {
+void Effect::Shadow::CreateDescriptors(D3D12_CPU_DESCRIPTOR_HANDLE srvCpuStart, D3D12_GPU_DESCRIPTOR_HANDLE srvGpuStart, D3D12_CPU_DESCRIPTOR_HANDLE dsvCpuStart, UINT srvSize, UINT dsvSize) {
 	INT srvIndex = static_cast<INT>(GetSrvIdx("ShadowMap").value_or(0));
 	m_cpuSRV = CD3DX12_CPU_DESCRIPTOR_HANDLE(srvCpuStart, srvIndex, srvSize);
 	m_gpuSRV = CD3DX12_GPU_DESCRIPTOR_HANDLE(srvGpuStart, srvIndex, srvSize);
-	m_cpuDSV = CD3DX12_CPU_DESCRIPTOR_HANDLE(dsvCpuStart, dsvOffset, dsvSize);
+	m_cpuDSV = CD3DX12_CPU_DESCRIPTOR_HANDLE(dsvCpuStart, m_dsvOffset, dsvSize);
 	CreateDescriptors();
 }
 

@@ -23,7 +23,7 @@ private:
 public:
 	GBuffer(ID3D12Device* _device, UINT _width, UINT _height, DXGI_FORMAT _albedoFormat, DXGI_FORMAT _posFormat, DXGI_FORMAT _normalFormat);
 	void Resize(UINT newWidth, UINT newHeight);
-	void CreateDescriptors(D3D12_CPU_DESCRIPTOR_HANDLE srvCpuStart, D3D12_GPU_DESCRIPTOR_HANDLE srvGpuStart, D3D12_CPU_DESCRIPTOR_HANDLE rtvStart, UINT rtvOffset, UINT srvSize, UINT rtvSize);
+	void CreateDescriptors(D3D12_CPU_DESCRIPTOR_HANDLE srvCpuStart, D3D12_GPU_DESCRIPTOR_HANDLE srvGpuStart, D3D12_CPU_DESCRIPTOR_HANDLE rtvStart, UINT srvSize, UINT rtvSize);
 	void InitPSO(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& templateDesc);
 	void RefreshGBuffer(ID3D12GraphicsCommandList* cmdList);
 	template <typename... Args>
@@ -43,6 +43,7 @@ public:
 	UINT											normalIdx;
 	UINT											m_width;
 	UINT											m_height;
+	UINT											m_rtvOffset;
 	unordered_map<std::wstring, unique_ptr<Shader>>	m_shader;
 };
 

@@ -3,17 +3,14 @@
 #include <utility>
 #include <array>
 
-#include "BaseGeometry.h"
-#include "Mesh.h"
 #include "RenderToTexture.h"
-#include "Texture.h"
 
 namespace Renderer
 {
 struct IRenderer :public Effect::RenderToTexture {
 public:
 	IRenderer(ID3D12Device* _device, UINT _width, UINT _height, DXGI_FORMAT _format)
-	: RenderToTexture(_device, _width, _height, _format) {}
+	: RenderToTexture(_device, _width, _height, _format){}
 	IRenderer(const IRenderer&) = delete;
 	IRenderer& operator=(const IRenderer&) = delete;
 	IRenderer& operator=(IRenderer&&) = default;
@@ -21,7 +18,7 @@ public:
 	virtual ~IRenderer() override = default;
 	virtual void InitTexture() = 0;
 	virtual void InitDSV(D3D12_CPU_DESCRIPTOR_HANDLE _cpuDSV) = 0;
-	virtual void CreateDescriptors(D3D12_CPU_DESCRIPTOR_HANDLE srvCpuStart, D3D12_CPU_DESCRIPTOR_HANDLE rtvCpuStart, D3D12_CPU_DESCRIPTOR_HANDLE dsvCpuStart, D3D12_GPU_DESCRIPTOR_HANDLE srvGpuStart, UINT rtvOffset, UINT dsvOffset, UINT srvSize, UINT rtvSize, UINT dsvSize) = 0;
+	virtual void CreateDescriptors(D3D12_CPU_DESCRIPTOR_HANDLE srvCpuStart, D3D12_CPU_DESCRIPTOR_HANDLE rtvCpuStart, D3D12_CPU_DESCRIPTOR_HANDLE dsvCpuStart, D3D12_GPU_DESCRIPTOR_HANDLE srvGpuStart, UINT srvSize, UINT rtvSize, UINT dsvSize) = 0;
 	template <typename... Args>
 	void InitShaders(Args&&... args) noexcept
 	{
@@ -66,5 +63,7 @@ protected:
 	CD3DX12_CPU_DESCRIPTOR_HANDLE							m_bloomCpuSRV;
 	CD3DX12_GPU_DESCRIPTOR_HANDLE							m_bloomGpuSRV;
 	UINT													m_bloomIdx;
+	UINT													m_dsvOffset;
+	UINT													m_rtvOffset;
 };
 }

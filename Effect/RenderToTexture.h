@@ -41,7 +41,6 @@ protected:
 protected:
 	ComPtr<ID3D12Device>			m_device;
 	ComPtr<ID3D12Resource>			m_resource;
-	ComPtr<ID3D12Resource>			m_depthStencilRes;
 	ComPtr<ID3D12PipelineState>		m_pso;
 
 	CD3DX12_CPU_DESCRIPTOR_HANDLE	m_cpuSRV;

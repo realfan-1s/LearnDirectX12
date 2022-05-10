@@ -225,25 +225,13 @@ void BoxApp::OnKeyboardInput(const GameTimer& timer)
 	m_camera->Update();
 }
 
-void BoxApp::CreateRtvAndDsvDescriptorHeaps() {
-	// TODO:numDescriptors Of RTV and DSV need register
-	D3D12_DESCRIPTOR_HEAP_DESC rtvDesc;
-	rtvDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-	rtvDesc.NumDescriptors = m_swapBufferCount + 3 + 8;
-	rtvDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	rtvDesc.NodeMask = 0;
-	ThrowIfFailed(m_d3dDevice->CreateDescriptorHeap(&rtvDesc, IID_PPV_ARGS(m_rtvHeap.GetAddressOf())));
-	D3D12_DESCRIPTOR_HEAP_DESC dsvDesc;
-	dsvDesc.NumDescriptors = 4;
-	dsvDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
-	dsvDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	dsvDesc.NodeMask = 0;
-	ThrowIfFailed(m_d3dDevice->CreateDescriptorHeap(&dsvDesc, IID_PPV_ARGS(m_dsvHeap.GetAddressOf())));
-	m_dynamicCube->InitDSV({ m_dsvHeap->GetCPUDescriptorHandleForHeapStart(), 1, m_dsvDescriptorSize });
+void BoxApp::RegisterRTVAndDSV() {
+	RtvDsvMgr::instance().RegisterRTV(m_swapBufferCount );
+	RtvDsvMgr::instance().RegisterDSV(1);
 }
 
 void BoxApp::CreateOffScreenRendering() {
-	gBuffer = std::make_unique<Renderer::GBuffer>(m_d3dDevice.Get(), m_clientWidth, m_clientHeight, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_R32_FLOAT, DXGI_FORMAT_R16G16B16A16_FLOAT);
+	gBuffer = std::make_unique<Renderer::GBuffer>(m_d3dDevice.Get(), m_clientWidth, m_clientHeight, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_R32_FLOAT, DXGI_FORMAT_R16G16B16A16_SNORM);
 	m_renderer = std::make_unique<Renderer::DeferShading>(m_d3dDevice.Get(), m_clientWidth, m_clientHeight, m_backBufferFormat);
 	m_shadow = std::make_unique<Effect::Shadow>(m_d3dDevice.Get(), 2048U, DXGI_FORMAT_R24G8_TYPELESS);
 	m_dynamicCube = std::make_unique<Effect::DynamicCubeMap>(m_d3dDevice.Get(), 1024U, 1024U, DXGI_FORMAT_R8G8B8A8_UNORM);
@@ -371,16 +359,15 @@ void BoxApp::CreateDescriptorHeaps()
 
 	auto cpuSrvStart = TextureMgr::instance().GetSRVDescriptorHeap()->GetCPUDescriptorHandleForHeapStart();
 	auto gpuSrvStart = TextureMgr::instance().GetSRVDescriptorHeap()->GetGPUDescriptorHandleForHeapStart();
-	auto cpuRtvStart = m_rtvHeap->GetCPUDescriptorHandleForHeapStart();
-	auto dsvCpuStart = m_dsvHeap->GetCPUDescriptorHandleForHeapStart();
-	UINT rtvOffset = m_swapBufferCount + 3;
-	gBuffer->CreateDescriptors(cpuSrvStart, gpuSrvStart, cpuRtvStart, m_swapBufferCount, m_cbvUavDescriptorSize, m_rtvDescriptorSize);
-	m_dynamicCube->CreateDescriptors(cpuSrvStart, gpuSrvStart, cpuRtvStart, rtvOffset, m_cbvUavDescriptorSize, m_rtvDescriptorSize);
-	m_shadow->CreateDescriptors(cpuSrvStart, gpuSrvStart, dsvCpuStart, m_cbvUavDescriptorSize, m_dsvDescriptorSize, 2);
+	auto cpuRtvStart = RtvDsvMgr::instance().GetRenderTargetView();
+	auto cpuDsvStart = RtvDsvMgr::instance().GetDepthStencilView();
+	gBuffer->CreateDescriptors(cpuSrvStart, gpuSrvStart, cpuRtvStart, m_cbvUavDescriptorSize, m_rtvDescriptorSize);
+	m_dynamicCube->CreateDescriptors(cpuSrvStart, gpuSrvStart, cpuDsvStart, cpuRtvStart, m_cbvUavDescriptorSize, m_rtvDescriptorSize, m_dsvDescriptorSize);
+	m_shadow->CreateDescriptors(cpuSrvStart, gpuSrvStart, cpuDsvStart, m_cbvUavDescriptorSize, m_dsvDescriptorSize);
 	m_blur->CreateDescriptors(cpuSrvStart, gpuSrvStart, m_cbvUavDescriptorSize);
 	m_toneMap->CreateDescriptors(cpuSrvStart, gpuSrvStart, m_cbvUavDescriptorSize);
 	m_renderer->InitDSV(GetDepthStencilView());
-	m_renderer->CreateDescriptors(cpuSrvStart, cpuRtvStart, dsvCpuStart, gpuSrvStart, rtvOffset + 6, 3, m_cbvUavDescriptorSize, m_rtvDescriptorSize, m_dsvDescriptorSize);
+	m_renderer->CreateDescriptors(cpuSrvStart, cpuRtvStart, cpuDsvStart, gpuSrvStart, m_cbvUavDescriptorSize, m_rtvDescriptorSize, m_dsvDescriptorSize);
 }
 
 // 根签名：执行绘制命令之前，应用成程序将绑定到流水线上的资源映射到对应的输入寄存器。

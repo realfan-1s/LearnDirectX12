@@ -4,11 +4,13 @@
 #include "Mesh.h"
 #include "BaseGeometry.h"
 #include "d3dcompiler.h"
+#include "RtvDsvMgr.h"
 
 using namespace DirectX;
 
 Renderer::DeferShading::DeferShading(ID3D12Device* _device, UINT _width, UINT _height, DXGI_FORMAT _format)
 : IRenderer(_device, _width, _height, _format){
+	m_rtvOffset = RtvDsvMgr::instance().RegisterRTV(2);
 	CreateResources();
 }
 
@@ -36,7 +38,7 @@ void Renderer::DeferShading::InitDSV(D3D12_CPU_DESCRIPTOR_HANDLE _cpuDSV) {
 
 void Renderer::DeferShading::CreateDescriptors(D3D12_CPU_DESCRIPTOR_HANDLE srvCpuStart,
 	D3D12_CPU_DESCRIPTOR_HANDLE rtvCpuStart, D3D12_CPU_DESCRIPTOR_HANDLE dsvCpuStart,
-	D3D12_GPU_DESCRIPTOR_HANDLE srvGpuStart, UINT rtvOffset, UINT dsvOffset, UINT srvSize, UINT rtvSize, UINT dsvSize)
+	D3D12_GPU_DESCRIPTOR_HANDLE srvGpuStart, UINT srvSize, UINT rtvSize, UINT dsvSize)
 {
 	CD3DX12_CPU_DESCRIPTOR_HANDLE srvCpuHandler(srvCpuStart, static_cast<INT>(m_bloomIdx), srvSize);
 	m_cpuSRV = srvCpuHandler;
@@ -44,7 +46,7 @@ void Renderer::DeferShading::CreateDescriptors(D3D12_CPU_DESCRIPTOR_HANDLE srvCp
 	CD3DX12_GPU_DESCRIPTOR_HANDLE srvGpuHandler(srvGpuStart, static_cast<INT>(m_bloomIdx), srvSize);
 	m_gpuSRV = srvGpuHandler;
 	m_bloomGpuSRV = srvGpuHandler.Offset(1, srvSize);
-	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvCpuHandler(rtvCpuStart, static_cast<INT>(rtvOffset), rtvSize);
+	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvCpuHandler(rtvCpuStart, static_cast<INT>(m_rtvOffset), rtvSize);
 	m_bloomRTV[0] = rtvCpuHandler;
 	m_bloomRTV[1] = rtvCpuHandler.Offset(1, rtvSize);
 

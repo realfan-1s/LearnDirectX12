@@ -29,7 +29,7 @@ public:
 	void OnMouseMove(WPARAM btnState, int x, int y);
 	void OnMouseUp(WPARAM btnState, int x, int y);
 	void OnKeyboardInput(const GameTimer& timer);
-	void CreateRtvAndDsvDescriptorHeaps();
+	void RegisterRTVAndDSV();
 	void CreateOffScreenRendering();
 	void UpdateLUT(const GameTimer& timer);
 	void DrawLUT();

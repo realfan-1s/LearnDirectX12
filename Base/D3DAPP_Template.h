@@ -18,6 +18,7 @@
 #include <vector>
 #include <cassert>
 #include <string>
+#include "RtvDsvMgr.h"
 
 using namespace Microsoft::WRL;
 
@@ -430,10 +431,31 @@ protected:
 		m_msaaQuality = msaaQualityLevels.NumQualityLevels;
 #if defined(DEBUG) || defined(_DEBUG)
 		assert(m_msaaQuality > 0 && "Unexpected MSAA quality level.");
+		ComPtr<ID3D12InfoQueue>	infoQueue;
+		if (SUCCEEDED(m_d3dDevice.As(&infoQueue)))
+		{
+			infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE);
+			infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE);
+			infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, TRUE);
+			D3D12_MESSAGE_SEVERITY severities[] = { D3D12_MESSAGE_SEVERITY_INFO };
+			D3D12_MESSAGE_ID denyIDs[] = {
+				D3D12_MESSAGE_ID_CLEARRENDERTARGETVIEW_MISMATCHINGCLEARVALUE,
+				D3D12_MESSAGE_ID_MAP_INVALID_NULLRANGE,
+				D3D12_MESSAGE_ID_UNMAP_INVALID_NULLRANGE
+			};
+			D3D12_INFO_QUEUE_FILTER newFilter{};
+			newFilter.DenyList.NumSeverities = _countof(severities);
+			newFilter.DenyList.pSeverityList = severities;
+			newFilter.DenyList.NumIDs = _countof(denyIDs);
+			newFilter.DenyList.pIDList = denyIDs;
+ 
+			ThrowIfFailed(infoQueue->PushStorageFilter(&newFilter));
+		}
 #endif
 
 		CreateCommandObjects();
 		CreateSwapChain();
+		RegisterRTVAndDSV();
 		CreateOffScreenRendering();
 		CreateRtvAndDsvDescriptorHeaps();
 
@@ -517,29 +539,14 @@ protected:
 		m_d3dDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_commandAllocator.Get(), nullptr, IID_PPV_ARGS(m_commandList.GetAddressOf()));
 		m_commandList->Close(); // 因为命令队列可能会引用命令分配其中的数据，所以在确定GPU执行完命令之前，不能重置CommandAllocator
 	}
+	void CreateRtvAndDsvDescriptorHeaps()
+	{
+		RtvDsvMgr::instance().CreateRtvAndDsvDescriptorHeaps(m_d3dDevice.Get());
+	}
+
 	void CreateOffScreenRendering()
 	{
 		static_cast<T*>(this)->CreateOffScreenRendering();
-	}
-	void CreateRtvAndDsvDescriptorHeaps()
-	{
-		static_cast<T*>(this)->CreateRtvAndDsvDescriptorHeaps();
-	}
-	void CreateRtvAndDsvDescriptorHeaps(const T&)
-	{
-		D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc;
-		rtvHeapDesc.NumDescriptors = m_swapBufferCount;
-		rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-		rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-		rtvHeapDesc.NodeMask = 0;
-		m_d3dDevice->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(m_rtvHeap.GetAddressOf()));
-
-		D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc;
-		dsvHeapDesc.NumDescriptors = 1;
-		dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
-		dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-		dsvHeapDesc.NodeMask = 0;
-		m_d3dDevice->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(m_dsvHeap.GetAddressOf()));
 	}
 	void SetMSAAState(bool val)
 	{
@@ -550,7 +557,15 @@ protected:
 			Resize();
 		}
 	}
-
+	void RegisterRTVAndDSV()
+	{
+		static_cast<T*>(this)->RegisterRTVAndDSV();
+	}
+	void RegisterRTVAndDSV(const T&)
+	{
+		RtvDsvMgr::instance().RegisterRTV(m_swapBufferCount);
+		RtvDsvMgr::instance().RegisterDSV(1);
+	}
 	void LogAdapters()
 	{
 		UINT i = 0;
@@ -613,11 +628,11 @@ protected:
 	}
 	D3D12_CPU_DESCRIPTOR_HANDLE GetDepthStencilView() const
 	{
-		return m_dsvHeap->GetCPUDescriptorHandleForHeapStart();
+		return RtvDsvMgr::instance().GetDepthStencilView();
 	}
 	D3D12_CPU_DESCRIPTOR_HANDLE GetCurrentBackBufferView() const
 	{
-		return CD3DX12_CPU_DESCRIPTOR_HANDLE(m_rtvHeap->GetCPUDescriptorHandleForHeapStart(), 
+		return CD3DX12_CPU_DESCRIPTOR_HANDLE(RtvDsvMgr::instance().GetRenderTargetView(), 
 		m_currBackBuffer,
 		m_rtvDescriptorSize);
 	}
@@ -660,8 +675,6 @@ protected:
 	ComPtr<ID3D12Resource>				m_depthStencilBuffer; // 深度与模板区的RenderTarget
 
 	// 因为Resource是gpu中纯粹的内存块，无法被理解，因此需要额外的表述帮助使用resource
-	ComPtr<ID3D12DescriptorHeap>		m_rtvHeap; // 将交换链中用于渲染数据的缓冲区资源创建对应的渲染目标视图
-	ComPtr<ID3D12DescriptorHeap>		m_dsvHeap; // 将深度测试的深度/模板缓冲区创建一个深度/模板视图
 
 	std::shared_ptr<Camera>				m_camera;
 	D3D12_RECT							m_scissorRect; // 裁剪矩形,除此之外的内容都会被剔除
