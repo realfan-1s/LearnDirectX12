@@ -7,6 +7,7 @@ static const float INV_PI = 0.3183098861837907f;
 #define DIR_LIGHT_NUM (3)
 #define SPOT_LIGHT_COUNT (0)
 #define POINT_LIGHT_COUNT (0)
+#define randOffset (14)
 
 struct Light {
     float3 strength; // 光源的颜色
@@ -48,6 +49,7 @@ struct WorldConstant
     float4x4 g_view;
     float4x4 g_proj;
     float4x4 g_vp;
+    float4x4 g_invProj;
     float4x4 shadowTansform;
     float4x4 g_viewPortRay;
     float    g_nearZ;
@@ -61,6 +63,23 @@ struct WorldConstant
     float3   ambient;
     float    jitterY;
     Light    lights[MAX_LIGHTS];
+};
+
+struct SSAOPass
+{
+    float4 g_randNoise[randOffset];
+    float  g_radius;
+    float  g_surfaceEpsilon;
+    float  g_attenuationEnd;
+    float  g_attenuationStart;
+};
+
+struct BlurPass
+{
+    float4 g_gaussW0;
+    float2 g_gaussW1;
+    uint   g_doHorizontal;
+    uint   g_pad0;
 };
 
 SamplerState            pointWrap        : register(s0);
@@ -78,9 +97,13 @@ StructuredBuffer<Material> cbMaterial : register(t0, space1);
 Texture2D g_shadow : register(t1);
 // 将此结构化缓冲区放置在space1中，纹理数组不会与之重叠，因为这个缓冲区位于space1位置
 StructuredBuffer<ObjectInstance> instanceData : register(t1, space1);
-Texture2D g_modelTexture[256] : register(t2);
-Texture2D gBuffer[3] : register(t2, space1);
+Texture2D randomTex : register(t2); // 第一个是法向半球
+Texture2D ssao : register(t2, space1);
+Texture2D g_modelTexture[256] : register(t3);
+Texture2D gBuffer[3] : register(t3, space1);
 ConstantBuffer<WorldConstant> cbPass : register(b0);
+ConstantBuffer<SSAOPass> ssaoNoise : register(b1);
+ConstantBuffer<BlurPass> blurNoise : register(b2);
 
 float GGX(float ndoth, float r2);
 float Geometry(float ndotv, float ndotl, float r2);

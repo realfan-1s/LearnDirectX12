@@ -3,7 +3,6 @@
 
 struct cbSettings
 {
-    // blur weight;
     float2 texSize;
     float2 invTexSize;
     float w0;
@@ -15,6 +14,28 @@ struct cbSettings
     float o2;
     float o3;
 };
+
+struct ComputeConstant
+{
+    float4x4 g_view;
+    float4x4 g_proj;
+    float4x4 g_vp;
+    float4x4 g_previousVP;
+    float4x4 g_invProj;
+    float    g_nearZ;
+    float    g_farZ;
+    float    g_deltaTime;
+    float    g_totalTime;
+    float3   g_cameraPos;
+    float    g_GamePad0;
+};
+
+ConstantBuffer<cbSettings> cbInput : register(b0, space0);
+ConstantBuffer<ComputeConstant> cbPass : register(b1, space0);
+Texture2D input : register(t0, space0);
+Texture2D BloomMap : register(t1, space0);
+Texture2D gBuffer[3] : register(t2, space0);
+RWTexture2D<float4> output : register(u0, space0);
 
 SamplerState            pointWrap        : register(s0);
 SamplerState            pointClamp       : register(s1);

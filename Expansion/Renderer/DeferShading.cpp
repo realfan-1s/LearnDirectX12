@@ -59,10 +59,7 @@ void Renderer::DeferShading::Draw(ID3D12GraphicsCommandList* cmdList, const std:
 	cmdList->OMSetRenderTargets(2, &m_bloomRTV[0], true, &m_cpuDSV);
 
 	cmdList->SetPipelineState(m_pso.Get());
-	cmdList->IASetVertexBuffers(0, 0, nullptr);
-	cmdList->IASetIndexBuffer(nullptr);
-	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	cmdList->DrawInstanced(6, 1, 0, 0);
+	DrawCanvas(cmdList);
 }
 
 void Renderer::DeferShading::Update(const GameTimer& timer, const std::function<void(UINT, PassConstant&)>& updateFunc) {

@@ -11,9 +11,9 @@ Effect::GaussianBlur::GaussianBlur(ID3D12Device* _device, UINT _width, UINT _hei
 	CreateResources();
 }
 
-void Effect::GaussianBlur::InitShader(const std::wstring& binaryName, const std::wstring& binaryName2) {
+void Effect::GaussianBlur::InitShader(const std::wstring& binaryName, const std::wstring& binaryName1) {
 	m_shader = std::make_unique<Shader>(ShaderType::compute_shader, binaryName, initializer_list<D3D12_INPUT_ELEMENT_DESC>());
-	m_shader1 = std::make_unique<Shader>(ShaderType::compute_shader, binaryName2, initializer_list<D3D12_INPUT_ELEMENT_DESC>());
+	m_shader1 = std::make_unique<Shader>(ShaderType::compute_shader, binaryName1, initializer_list<D3D12_INPUT_ELEMENT_DESC>());
 	m_DownUp->InitShader();
 }
 
@@ -30,12 +30,6 @@ void Effect::GaussianBlur::InitPSO(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& tem
 	blurDesc1.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
 	ThrowIfFailed(m_device->CreateComputePipelineState(&blurDesc1, IID_PPV_ARGS(&m_pso1)));
 	m_DownUp->InitPSO(templateDesc);
-}
-
-void Effect::GaussianBlur::InitRootSignature()
-{
-	m_signature = PostProcessMgr::instance().GetRootSignature();
-	m_DownUp->InitRootSignature();
 }
 
 void Effect::GaussianBlur::CreateDescriptors(D3D12_CPU_DESCRIPTOR_HANDLE cpuDesc, D3D12_GPU_DESCRIPTOR_HANDLE gpuDesc, UINT descSize) {
@@ -56,16 +50,17 @@ void Effect::GaussianBlur::CreateDescriptors(D3D12_CPU_DESCRIPTOR_HANDLE cpuDesc
 }
 
 void Effect::GaussianBlur::Draw(ID3D12GraphicsCommandList* cmdList, const std::function<void(UINT)>& drawFunc) const {
+	ChangeState<D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST>(cmdList, GetResourceDownSampler());
+	drawFunc(NULL);
+	ChangeState<D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ>(cmdList, GetResourceDownSampler());
+	m_DownUp->SubDraw<TexSizeChange::DownSampler>(cmdList, m_resource.Get());
+
 	cmdList->SetComputeRootSignature(PostProcessMgr::instance().GetRootSignature());
 	float texSize[4] = { static_cast<float>(m_shrinkWidth), static_cast<float>(m_shrinkHeight),
-		static_cast<float>(m_invWidth), static_cast<float>(m_invHeight) };
+		m_invWidth, m_invHeight };
 	cmdList->SetComputeRoot32BitConstants(0, 4, &texSize, 0);
 	cmdList->SetComputeRoot32BitConstants(0, m_weights.size(), m_weights.data(), 4);
 	cmdList->SetComputeRoot32BitConstants(0, m_offsets.size(), m_offsets.data(), 4 + m_weights.size());
-
-	drawFunc(NULL);
-
-	m_DownUp->SubDraw<TexSizeChange::DownSampler>(cmdList, m_resource.Get());
 
 	// 开始进行真正地模糊操作
 	ChangeState<D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_UNORDERED_ACCESS>(cmdList, m_resource1.Get());
@@ -115,14 +110,14 @@ void Effect::GaussianBlur::Update(const GameTimer& timer, const std::function<vo
 	}
 }
 
-void Effect::GaussianBlur::InitTexture() {
-	InitSRV("blurHorizontal");
-	srvOffset = TextureMgr::instance().GetRegisterType("blurHorizontal").value();
-	InitSRV("blurHorizontalUAV");
-	InitSRV("blurVertical");
-	InitSRV("blurVerticalUAV");
+void Effect::GaussianBlur::InitTexture(const string& horizontal, const string& vertical, const string& down, const string& up) {
+	InitSRV(horizontal);
+	srvOffset = TextureMgr::instance().GetRegisterType(horizontal).value();
+	InitSRV(horizontal + "UAV");
+	InitSRV(vertical);
+	InitSRV(vertical + "UAV");
 
-	m_DownUp->InitTexture();
+	m_DownUp->InitTexture(down, up);
 }
 
 ID3D12Resource* Effect::GaussianBlur::GetResourceDownSampler() const {

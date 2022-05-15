@@ -2,16 +2,7 @@
 #define BASE_SHADING
 
 #include "GameBase.hlsl"
-
-static const float2 g_uv[6] =
-{
-    float2(0.0f, 1.0f),
-    float2(0.0f, 0.0f),
-    float2(1.0f, 0.0f),
-    float2(0.0f, 1.0f),
-    float2(1.0f, 0.0f),
-    float2(1.0f, 1.0f)
-};
+#include "Canvas.hlsl"
 struct v2f
 {
     float4 pos : SV_POSITION;
@@ -23,7 +14,7 @@ v2f Vert(uint vertexID : SV_VERTEXID)
 {
     v2f o;
     o.uv = g_uv[vertexID];
-    o.pos = float4(2.0f * o.uv.x - 1.0f, 1.0f - 2.0f * o.uv.y, 0.0f, 1.0f);
+    o.pos = float4(2.0f * o.uv.x - 1.0f, 1.0f - 2.0f * o.uv.y, 1.0f, 1.0f);
 
     [branch]
     if (o.uv.x < 0.5f && o.uv.y < 0.5f)
@@ -65,7 +56,8 @@ PixelOut Frag(v2f o)
     matData.emission = float3(0, 0, 0);
     matData.metalness = parameter.w;
 
-    float3 ans = ComputeLighting(cbPass.lights, matData, frag.xyz, normalDir, viewDir, shadowPos) + ambient;
+    float ao = ssao.Sample(anisotropicClamp, o.uv).x;
+    float3 ans = ComputeLighting(cbPass.lights, matData, frag.xyz, normalDir, viewDir, shadowPos) + ambient * ao;
 
     PixelOut pixAns;
     float luma = CalcLuma(ans);

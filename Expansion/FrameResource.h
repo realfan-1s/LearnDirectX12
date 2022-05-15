@@ -20,6 +20,7 @@ public:
 	std::unique_ptr<UploaderBuffer<ObjectInstance>>		m_uploadCBuffer{ nullptr };
 	std::unique_ptr<UploaderBuffer<PassConstant>>		m_passCBuffer{ nullptr };
 	std::unique_ptr<UploaderBuffer<MaterialConstant>>	m_materialCBuffer{ nullptr };
+	std::unique_ptr<UploaderBuffer<PostProcessPass>>	m_postProcessCBuffer{ nullptr };
 	// GPU执行完命令分配器相关的命令之前，就不能重置命令分配器因此每一帧都需要自己的命令分配器
 	ComPtr<ID3D12CommandAllocator>						m_commandAllocator{ nullptr };
 	UINT64												m_fence{ 0 };

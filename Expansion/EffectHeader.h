@@ -5,3 +5,4 @@
 #include "DynamicCubeMap.h"
 #include "GuassianBlur.h"
 #include "ToneMap.h"
+#include "SSAO.h"

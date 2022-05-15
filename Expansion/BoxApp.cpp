@@ -89,6 +89,7 @@ void BoxApp::Update(const GameTimer& timer)
 	UpdateObjectInstance(timer);
 	UpdateMaterialConstant(timer);
 	UpdatePassConstant(timer);
+	UpdatePostProcess(timer);
 	UpdateOffScreen(timer);
 }
 
@@ -107,7 +108,7 @@ void BoxApp::DrawScene(const GameTimer& timer)
 	auto matBuffer = m_currFrameResource->m_materialCBuffer->GetResource();
 	m_commandList->SetGraphicsRootShaderResourceView(2, matBuffer->GetGPUVirtualAddress());
 	// textureBuffer传递
-	m_commandList->SetGraphicsRootDescriptorTable(3, TextureMgr::instance().GetSRVDescriptorHeap()->GetGPUDescriptorHandleForHeapStart());
+	m_commandList->SetGraphicsRootDescriptorTable(6, TextureMgr::instance().GetSRVDescriptorHeap()->GetGPUDescriptorHandleForHeapStart());
 
 	/*
 	 * 实时离屏渲染绘制
@@ -146,17 +147,27 @@ void BoxApp::DrawScene(const GameTimer& timer)
 	{
 		ChangeState<D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_GENERIC_READ>(m_commandList.Get(), gBuffer->gBufferRes[i].Get());
 	}
-	// 向GPU中传递skybox纹理
-	auto skyboxSRVHandler = CD3DX12_GPU_DESCRIPTOR_HANDLE(TextureMgr::instance().GetSRVDescriptorHeap()->GetGPUDescriptorHandleForHeapStart());
-	skyboxSRVHandler.Offset(m_skybox->GetStaticID(), m_cbvUavDescriptorSize);
-	m_commandList->SetGraphicsRootDescriptorTable(4, skyboxSRVHandler);
+	// 向Post Process中传递GBuffer和PassConstant
+	// 向GPU中传递GBuffer纹理
+	auto gBufferSRVHandler = CD3DX12_GPU_DESCRIPTOR_HANDLE(TextureMgr::instance().GetSRVDescriptorHeap()->GetGPUDescriptorHandleForHeapStart());
+	gBufferSRVHandler.Offset(gBuffer->albedoIdx, m_cbvUavDescriptorSize);
+	PostProcessMgr::instance().UpdateResources(m_commandList.Get(), m_currFrameResource->m_postProcessCBuffer->GetResource()->GetGPUVirtualAddress(), gBufferSRVHandler);
+	m_commandList->SetGraphicsRootDescriptorTable(3, gBufferSRVHandler);
+
+	// SSAO绘制
+	m_ssao->Draw(m_commandList.Get(), [](UINT) {});
+	auto ssaoSRVHandler = CD3DX12_GPU_DESCRIPTOR_HANDLE(TextureMgr::instance().GetSRVDescriptorHeap()->GetGPUDescriptorHandleForHeapStart());
+	ssaoSRVHandler.Offset(m_ssao->GetSrvIdx("SSAO").value_or(0), m_cbvUavDescriptorSize);
+	m_commandList->SetGraphicsRootDescriptorTable(4, ssaoSRVHandler);
+
 	// 向GPU中传递shadow纹理
 	auto shadowSRVHandler = CD3DX12_GPU_DESCRIPTOR_HANDLE(TextureMgr::instance().GetSRVDescriptorHeap()->GetGPUDescriptorHandleForHeapStart());
 	shadowSRVHandler.Offset(m_shadow->GetSrvIdx("ShadowMap").value_or(0), m_cbvUavDescriptorSize);
 	m_commandList->SetGraphicsRootDescriptorTable(5, shadowSRVHandler);
-	auto gBufferSRVHandler = CD3DX12_GPU_DESCRIPTOR_HANDLE(TextureMgr::instance().GetSRVDescriptorHeap()->GetGPUDescriptorHandleForHeapStart());
-	gBufferSRVHandler.Offset(gBuffer->albedoIdx, m_cbvUavDescriptorSize);
-	m_commandList->SetGraphicsRootDescriptorTable(6, gBufferSRVHandler);
+	auto skyboxSRVHandler = CD3DX12_GPU_DESCRIPTOR_HANDLE(TextureMgr::instance().GetSRVDescriptorHeap()->GetGPUDescriptorHandleForHeapStart());
+	skyboxSRVHandler.Offset(m_skybox->GetStaticID(), m_cbvUavDescriptorSize);
+	m_commandList->SetGraphicsRootDescriptorTable(7, skyboxSRVHandler);
+
 	m_renderer->Draw(m_commandList.Get(), [](UINT){});
 	m_commandList->SetPipelineState(m_skybox->GetPSO());
 	DrawRenderItems(m_commandList.Get(), m_renderItemLayers[static_cast<UINT>(BlendType::skybox)]);
@@ -239,6 +250,7 @@ void BoxApp::CreateOffScreenRendering() {
 	PostProcessMgr::instance().Init(m_d3dDevice.Get());
 	m_blur = std::make_unique<Effect::GaussianBlur>(m_d3dDevice.Get(), m_clientWidth, m_clientHeight, DXGI_FORMAT_R8G8B8A8_UNORM, 2U);
 	m_toneMap = std::make_unique<Effect::ToneMap>(m_d3dDevice.Get(), m_clientWidth, m_clientHeight, m_backBufferFormat);
+	m_ssao = std::make_unique<Effect::SSAO>(m_d3dDevice.Get(), m_clientWidth, m_clientHeight, DXGI_FORMAT_R8_SNORM);
 }
 
 void BoxApp::UpdateLUT(const GameTimer& timer)
@@ -307,11 +319,11 @@ void BoxApp::DrawLUT()
 	auto matBuffer = m_currFrameResource->m_materialCBuffer->GetResource();
 	m_commandList->SetGraphicsRootShaderResourceView(2, matBuffer->GetGPUVirtualAddress());
 	// textureBuffer传递
-	m_commandList->SetGraphicsRootDescriptorTable(3, TextureMgr::instance().GetSRVDescriptorHeap()->GetGPUDescriptorHandleForHeapStart());
+	m_commandList->SetGraphicsRootDescriptorTable(6, TextureMgr::instance().GetSRVDescriptorHeap()->GetGPUDescriptorHandleForHeapStart());
 	// 向GPU中传递skybox纹理
 	auto skyboxSRVHandler = CD3DX12_GPU_DESCRIPTOR_HANDLE(TextureMgr::instance().GetSRVDescriptorHeap()->GetGPUDescriptorHandleForHeapStart());
 	skyboxSRVHandler.Offset(m_skybox->GetStaticID(), m_cbvUavDescriptorSize);
-	m_commandList->SetGraphicsRootDescriptorTable(4, skyboxSRVHandler);
+	m_commandList->SetGraphicsRootDescriptorTable(7, skyboxSRVHandler);
 
 	// LUT drawing
 	m_dynamicCube->Draw(m_commandList.Get(), [&](UINT offset) {
@@ -368,6 +380,8 @@ void BoxApp::CreateDescriptorHeaps()
 	m_toneMap->CreateDescriptors(cpuSrvStart, gpuSrvStart, m_cbvUavDescriptorSize);
 	m_renderer->InitDSV(GetDepthStencilView());
 	m_renderer->CreateDescriptors(cpuSrvStart, cpuRtvStart, cpuDsvStart, gpuSrvStart, m_cbvUavDescriptorSize, m_rtvDescriptorSize, m_dsvDescriptorSize);
+	m_ssao->CreateRandomTexture(m_commandList.Get());
+	m_ssao->CreateDescriptors(cpuSrvStart, gpuSrvStart, cpuRtvStart, m_cbvUavDescriptorSize, m_rtvDescriptorSize);
 }
 
 // 根签名：执行绘制命令之前，应用成程序将绑定到流水线上的资源映射到对应的输入寄存器。
@@ -382,24 +396,32 @@ void BoxApp::CreateRootSignature()
 	CD3DX12_DESCRIPTOR_RANGE skyboxSRV;
 	skyboxSRV.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0);
 	CD3DX12_DESCRIPTOR_RANGE texSRV;
-	texSRV.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 256, 2, 0);
+	texSRV.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 256, 3, 0);
 	CD3DX12_DESCRIPTOR_RANGE shadowSRV;
 	shadowSRV.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 1, 0);
 	CD3DX12_DESCRIPTOR_RANGE gBufferSRV;
-	gBufferSRV.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, 2, 1);
-	CD3DX12_ROOT_PARAMETER parameters[7]{};
+	gBufferSRV.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, 3, 1);
+	CD3DX12_DESCRIPTOR_RANGE randSRV;
+	randSRV.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 2, 0);
+	CD3DX12_DESCRIPTOR_RANGE ssaoSRV;
+	ssaoSRV.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 2, 1);
+	CD3DX12_ROOT_PARAMETER parameters[11]{};
 	parameters[0].InitAsConstantBufferView(0); // 渲染过程的CBV
 	parameters[1].InitAsShaderResourceView(1, 1); // 物体的CBV
 	parameters[2].InitAsShaderResourceView(0, 1); // 物体材质的结构化缓冲区
-	parameters[3].InitAsDescriptorTable(1, &texSRV, D3D12_SHADER_VISIBILITY_PIXEL); // 所有纹理的位置
-	parameters[4].InitAsDescriptorTable(1, &skyboxSRV, D3D12_SHADER_VISIBILITY_PIXEL); // 天空盒的位置
+	parameters[3].InitAsDescriptorTable(1, &gBufferSRV, D3D12_SHADER_VISIBILITY_PIXEL); // gBuffer的位置
+	parameters[4].InitAsDescriptorTable(1, &ssaoSRV, D3D12_SHADER_VISIBILITY_PIXEL);
 	parameters[5].InitAsDescriptorTable(1, &shadowSRV, D3D12_SHADER_VISIBILITY_PIXEL);// 阴影贴图的位置
-	parameters[6].InitAsDescriptorTable(1, &gBufferSRV, D3D12_SHADER_VISIBILITY_PIXEL); // gBuffer的位置
+	parameters[6].InitAsDescriptorTable(1, &texSRV, D3D12_SHADER_VISIBILITY_PIXEL); // 所有纹理的位置
+	parameters[7].InitAsDescriptorTable(1, &skyboxSRV, D3D12_SHADER_VISIBILITY_PIXEL); // 天空盒的位置
+	parameters[8].InitAsDescriptorTable(1, &randSRV, D3D12_SHADER_VISIBILITY_PIXEL); // SSAO随机转动纹理
+	parameters[9].InitAsConstantBufferView(1); // SSAO ConstantBuffer纹理
+	parameters[10].InitAsConstantBufferView(2); // Bilateral Blur 纹理
 
 	// 静态采样器设置
 	auto staticSampler = CreateStaticSampler2D();
 	// 根签名的参数组成
-	CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc(7U, parameters, staticSampler.size(), staticSampler.data(), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+	CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc(11U, parameters, staticSampler.size(), staticSampler.data(), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 	// 创建只含有一个常量缓冲区组成的描述符区域的根签名
 	ComPtr<ID3DBlob> serialRootSig{ nullptr }; // ID3DBlob是一个普通的内存块，可以返回一个void*数据或返回缓冲区的大小
 	ComPtr<ID3DBlob> error{ nullptr };
@@ -410,8 +432,6 @@ void BoxApp::CreateRootSignature()
 	ThrowIfFailed(res);
 	m_d3dDevice->CreateRootSignature(0, serialRootSig->GetBufferPointer(), 
 		serialRootSig->GetBufferSize(), IID_PPV_ARGS(&m_rootSignature));
-
-	m_blur->InitRootSignature();
 }
 
 void BoxApp::CreateShadersAndInput() {
@@ -429,6 +449,7 @@ void BoxApp::CreateShadersAndInput() {
 	m_toneMap->InitShader(L"Shaders\\ToneMap_ACES");
 	m_renderer->InitShaders(std::forward_as_tuple(L"Shaders\\Box", default_shader, initializer_list<D3D12_INPUT_ELEMENT_DESC>({ {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
 		{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0} })));
+	m_ssao->InitShader();
 }
 
 void BoxApp::CreateGeometry()
@@ -529,6 +550,7 @@ void BoxApp::CreatePSO()
 	m_blur->InitPSO(templateDesc);
 	m_toneMap->InitPSO(templateDesc);
 	m_renderer->InitPSO(templateDesc);
+	m_ssao->InitPSO(templateDesc);
 }
 
 void BoxApp::CreateFrameResources()
@@ -574,8 +596,8 @@ void BoxApp::CreateRenderItems()
 	sphere->vboStart = sphere->m_mesh->drawArgs["Sphere"].vboStart;
 	for (size_t i = 0; i < 5; ++i)
 	{
-		sphere->EmplaceBack(std::move(XMFLOAT3(-5.0f, 3.5f, -10.0f + i * 5.0f)));
-		sphere->EmplaceBack(std::move(XMFLOAT3(5.0f, 3.5f, -10.0f + i * 5.0f)));
+		sphere->EmplaceBack(std::move(XMFLOAT3(-5.0f, 1.5f, -10.0f + i * 5.0f)));
+		sphere->EmplaceBack(std::move(XMFLOAT3(5.0f, 1.5f, -10.0f + i * 5.0f)));
 	}
 	m_renderItems.emplace_back(std::move(sphere));
 
@@ -620,6 +642,7 @@ void BoxApp::CreateTextures()
 	m_shadow->InitSRV("ShadowMap");
 	m_blur->InitTexture();
 	m_toneMap->InitTexture();
+	m_ssao->InitTexture();
 }
 
 void BoxApp::CreateMaterials()
@@ -666,6 +689,7 @@ void BoxApp::UpdatePassConstant(const GameTimer& timer)
 	XMStoreFloat4x4(&m_currPassCB.view_gpu, XMMatrixTranspose(m_camera->GetCurrViewXM()));
 	XMStoreFloat4x4(&m_currPassCB.proj_gpu, XMMatrixTranspose(m_camera->GetCurrProjXM()));
 	XMStoreFloat4x4(&m_currPassCB.vp_gpu, XMMatrixTranspose(m_camera->GetCurrVPXM()));
+	XMStoreFloat4x4(&m_currPassCB.invProj_gpu, XMMatrixTranspose(m_camera->GetInvProjXM()));
 	XMStoreFloat4x4(&m_currPassCB.shadowTransform_gpu, XMMatrixTranspose(m_shadow->GetShadowTransformXM()));
 	XMStoreFloat4x4(&m_currPassCB.viewPortRay_gpu, XMMatrixTranspose(m_camera->GetViewPortRayXM()));
 	m_currPassCB.nearZ_gpu = m_camera->m_nearPlane;
@@ -701,6 +725,24 @@ void BoxApp::UpdateOffScreen(const GameTimer& timer)
 	m_blur->Update(timer, [](UINT offset, auto& constant){});
 }
 
+void BoxApp::UpdatePostProcess(const GameTimer& timer)
+{
+	PostProcessPass ppp;
+	XMStoreFloat4x4(&ppp.view_gpu, XMMatrixTranspose(m_camera->GetCurrViewXM()));
+	XMStoreFloat4x4(&ppp.proj_gpu, XMMatrixTranspose(m_camera->GetCurrProjXM()));
+	XMStoreFloat4x4(&ppp.vp_gpu, XMMatrixTranspose(m_camera->GetCurrViewXM()));
+	XMStoreFloat4x4(&ppp.previousVP_gpu, XMMatrixTranspose(m_camera->GetPreviousVPXM()));
+	XMStoreFloat4x4(&ppp.invProj_gpu, XMMatrixTranspose(m_camera->GetInvProjXM()));
+	ppp.nearZ_gpu = m_camera->m_nearPlane;
+	ppp.farZ_gpu = m_camera->m_farPlane;
+	ppp.deltaTime_gpu = static_cast<float>(timer.DeltaTime());
+	ppp.totalTime_gpu = static_cast<float>(timer.TotalTime());
+	ppp.cameraPos_gpu = m_camera->GetCurrPos();
+
+	auto postProcessPass = m_currFrameResource->m_postProcessCBuffer.get();
+	postProcessPass->Copy(0, ppp);
+}
+
 void BoxApp::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const vector<RenderItem*>& items)
 {
 	auto objectConstantBuffer = m_currFrameResource->m_uploadCBuffer->GetResource();
@@ -730,9 +772,7 @@ void BoxApp::DrawPostProcess(ID3D12GraphicsCommandList* cmdList) {
 	// 执行完毕后将数据从默认缓冲区拷贝到内存缓冲区中
 	m_blur->Draw(cmdList, [&](UINT) {
 		m_renderer->SetBloomState<1, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE>(cmdList);
-		ChangeState<D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST>(cmdList, m_blur->GetResourceDownSampler());
 		cmdList->CopyResource(m_blur->GetResourceDownSampler(), m_renderer->GetBloomRes());
-		ChangeState<D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ>(cmdList, m_blur->GetResourceDownSampler());
 		m_renderer->SetBloomState<1, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET>(cmdList);
 	});
 

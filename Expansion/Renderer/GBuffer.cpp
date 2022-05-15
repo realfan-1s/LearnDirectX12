@@ -74,12 +74,16 @@ void GBuffer::CreateResources() {
 	gBufferDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
 	{
 		const auto& properties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+		float gBufferClear[] = { 0.0f, 0.0f, 0.0f, 0.0f };
+		const CD3DX12_CLEAR_VALUE albedoClear(albedoFormat, gBufferClear);
 		gBufferDesc.Format = albedoFormat;
-		ThrowIfFailed(m_device->CreateCommittedResource(&properties, D3D12_HEAP_FLAG_NONE, &gBufferDesc, D3D12_RESOURCE_STATE_RENDER_TARGET, nullptr, IID_PPV_ARGS(&gBufferRes[0])));
+		ThrowIfFailed(m_device->CreateCommittedResource(&properties, D3D12_HEAP_FLAG_NONE, &gBufferDesc, D3D12_RESOURCE_STATE_RENDER_TARGET, &albedoClear, IID_PPV_ARGS(&gBufferRes[0])));
+		const CD3DX12_CLEAR_VALUE posClear(posFormat, gBufferClear);
 		gBufferDesc.Format = posFormat;
-		ThrowIfFailed(m_device->CreateCommittedResource(&properties, D3D12_HEAP_FLAG_NONE, &gBufferDesc, D3D12_RESOURCE_STATE_RENDER_TARGET, nullptr, IID_PPV_ARGS(&gBufferRes[1])));
+		ThrowIfFailed(m_device->CreateCommittedResource(&properties, D3D12_HEAP_FLAG_NONE, &gBufferDesc, D3D12_RESOURCE_STATE_RENDER_TARGET, &posClear, IID_PPV_ARGS(&gBufferRes[1])));
+		const CD3DX12_CLEAR_VALUE normalClear(normalFormat, gBufferClear);
 		gBufferDesc.Format = normalFormat;
-		ThrowIfFailed(m_device->CreateCommittedResource(&properties, D3D12_HEAP_FLAG_NONE, &gBufferDesc, D3D12_RESOURCE_STATE_RENDER_TARGET, nullptr, IID_PPV_ARGS(&gBufferRes[2])));
+		ThrowIfFailed(m_device->CreateCommittedResource(&properties, D3D12_HEAP_FLAG_NONE, &gBufferDesc, D3D12_RESOURCE_STATE_RENDER_TARGET, &normalClear, IID_PPV_ARGS(&gBufferRes[2])));
 	}
 }
 

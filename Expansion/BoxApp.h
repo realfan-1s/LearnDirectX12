@@ -20,8 +20,10 @@ public:
 	explicit BoxApp(HINSTANCE instance, bool startMsaa, Camera::CameraType type);
 	BoxApp(const BoxApp&) = delete;
 	BoxApp& operator=(const BoxApp&) = delete;
-	bool Init();
+	BoxApp(BoxApp&&) = default;
+	BoxApp& operator=(BoxApp&&) = default;
 	~BoxApp() override;
+	bool Init();
 	void Resize();
 	void Update(const GameTimer& timer);
 	void DrawScene(const GameTimer& timer);
@@ -57,10 +59,11 @@ private:
 	void UpdatePassConstant(const GameTimer& timer); 
 	void UpdateMaterialConstant(const GameTimer& timer);
 	void UpdateOffScreen(const GameTimer& timer);
+	void UpdatePostProcess(const GameTimer& timer);
 
 	void DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const vector<RenderItem*>& items);
 	void DrawPostProcess(ID3D12GraphicsCommandList* cmdList);
-
+private:
 	// cbuffer常量缓冲区，可以被着色器程序所引用,通常是CPU每帧更新一次。因此需要将常量缓冲区存在上传堆而非默认堆中，且常量缓冲区大小必须是硬件最小分配空间(256B)的整数倍
 	ComPtr<ID3D12RootSignature>							m_rootSignature{ nullptr };
 	FrameResource*										m_currFrameResource{ nullptr };
@@ -84,5 +87,6 @@ private:
 
 	std::unique_ptr<Renderer::IRenderer>				m_renderer;
 	std::unique_ptr<Renderer::GBuffer>					gBuffer;
+	std::unique_ptr<Effect::SSAO>						m_ssao;
 };   
 

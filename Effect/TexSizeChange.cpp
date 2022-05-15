@@ -110,17 +110,12 @@ void Effect::TexSizeChange::InitPSO(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& te
 void Effect::TexSizeChange::Update(const GameTimer& timer, const std::function<void(UINT, PassConstant&)>& updateFunc) {
 }
 
-void Effect::TexSizeChange::InitTexture() {
-	InitSRV("downSampler");
-	InitSRV("downSampler1");
-	InitSRV("upSampler");
-	downSRVIdx = TextureMgr::instance().GetRegisterType("downSampler").value();
-	upSRVIdx = TextureMgr::instance().GetRegisterType("upSampler").value();
-}
-
-void TexSizeChange::InitRootSignature()
-{
-	m_signature = PostProcessMgr::instance().GetRootSignature();
+void Effect::TexSizeChange::InitTexture(const string& down, const string& up) {
+	InitSRV(down);
+	InitSRV(down + "1");
+	InitSRV(up);
+	downSRVIdx = TextureMgr::instance().GetRegisterType(down).value();
+	upSRVIdx = TextureMgr::instance().GetRegisterType(up).value();
 }
 
 ID3D12Resource* Effect::TexSizeChange::GetDownSamplerResource() const {

@@ -26,8 +26,7 @@ public:
 	void SubDraw(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* source) const;
 	template <typename T, std::enable_if_t<std::is_base_of_v<Sampler, T> && !T::value>* = nullptr>
 	void SubDraw(ID3D12GraphicsCommandList* cmdList, CD3DX12_GPU_DESCRIPTOR_HANDLE sourceSRV) const;
-	void InitTexture();
-	void InitRootSignature();
+	void InitTexture(const string& down = "downSampler", const string& up = "upSampler");
 
 	ID3D12Resource* GetDownSamplerResource() const;
 	ID3D12Resource* GetUpSamplerResource() const;

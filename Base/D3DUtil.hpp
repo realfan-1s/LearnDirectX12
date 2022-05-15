@@ -167,3 +167,11 @@ inline void ChangeState(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* res)
 	const auto& trans = CD3DX12_RESOURCE_BARRIER::Transition(res, TBefore, TAfter);
 	cmdList->ResourceBarrier(1, &trans);
 }
+
+inline void DrawCanvas(ID3D12GraphicsCommandList* cmdList)
+{
+	cmdList->IASetVertexBuffers(0, 0, nullptr);
+	cmdList->IASetIndexBuffer(nullptr);
+	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	cmdList->DrawInstanced(6, 1, 0, 0);
+}

@@ -49,10 +49,11 @@ struct PassConstant
 	XMFLOAT4X4	view_gpu{ MathHelper::MathHelper::identity4x4() };
 	XMFLOAT4X4	proj_gpu{ MathHelper::MathHelper::identity4x4() };
 	XMFLOAT4X4	vp_gpu{ MathHelper::MathHelper::identity4x4() };
+	XMFLOAT4X4	invProj_gpu{ MathHelper::MathHelper::identity4x4() };
 	XMFLOAT4X4  shadowTransform_gpu{ MathHelper::MathHelper::identity4x4() };
 	XMFLOAT4X4	viewPortRay_gpu{ MathHelper::MathHelper::identity4x4() };
-	float		nearZ_gpu{ 0.0f };
-	float		farZ_gpu{ 1.0f };
+	float		nearZ_gpu{ 1.0f };
+	float		farZ_gpu{ 0.0f };
 	float		deltaTime_gpu{ 0.0f };
 	float		totalTime_gpu{ 0.0f };
 	XMFLOAT2	renderTargetSize_gpu;
@@ -62,4 +63,18 @@ struct PassConstant
 	XMFLOAT3	ambient{ 0.05f, 0.05f, 0.05f };
 	float		jitterY;
 	LightData	lights[maxLights];
+};
+
+struct PostProcessPass {
+	XMFLOAT4X4	view_gpu{ MathHelper::MathHelper::identity4x4() };
+	XMFLOAT4X4	proj_gpu{ MathHelper::MathHelper::identity4x4() };
+	XMFLOAT4X4	vp_gpu{ MathHelper::MathHelper::identity4x4() };
+	XMFLOAT4X4	previousVP_gpu{ MathHelper::MathHelper::identity4x4() };
+	XMFLOAT4X4	invProj_gpu{ MathHelper::MathHelper::identity4x4() };
+	float		nearZ_gpu{ 1.0f };
+	float		farZ_gpu{ 0.0f };
+	float		deltaTime_gpu{ 0.0f };
+	float		totalTime_gpu{ 0.0f };
+	XMFLOAT3	cameraPos_gpu;
+	float		g_GamePad0;
 };
