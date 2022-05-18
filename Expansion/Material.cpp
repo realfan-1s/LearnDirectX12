@@ -41,10 +41,9 @@ void Material::Update(const GameTimer& timer, UploaderBuffer<MaterialConstant>* 
 		{
 			MaterialConstant matConstants;
 			matConstants.emission = mat->emission;
-			matConstants.roughness = mat->roughness;
-			matConstants.metalness = mat->metalness;
 			matConstants.diffuseIndex = mat->diffuseIndex;
 			matConstants.normalIndex = mat->normalIndex;
+			matConstants.metalnessIndex = mat->metalnessIndex;
 			currMatConstant->Copy(mat->materialCBIndex, matConstants);
 			// 对下一个FrameResource进行更新
 			mat->dirtyFlag--;

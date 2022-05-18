@@ -20,7 +20,7 @@ void Horizontal(uint3 groupThreadID : SV_GROUPTHREADID, uint3 dispatchID : SV_DI
         float2 left = float2((dispatchID.x - offset[MAX_BLUR_SIZE]) * cbInput.invTexSize.x, dispatchID.y * cbInput.invTexSize.y);
         cache[groupThreadID.x] = input.SampleLevel(anisotropicClamp, left, 0.0f);
 		// Cache GBuffer
-		float3 normalDir = gBuffer[2].SampleLevel(anisotropicClamp, left, 0.0f).xyz;
+		float3 normalDir = DecodeSphereMap(gBuffer[2].SampleLevel(anisotropicClamp, left, 0.0f).xy);
 		gBufferCache[groupThreadID.x].xyz = mul(normalDir, (float3x3)cbPass.g_view);
 		float ndcZ = gBuffer[1].SampleLevel(anisotropicClamp, left, 0.0f).x;
 		float viewZ = cbPass.g_proj[3][2] / (ndcZ - cbPass.g_proj[2][2]);
@@ -29,7 +29,7 @@ void Horizontal(uint3 groupThreadID : SV_GROUPTHREADID, uint3 dispatchID : SV_DI
     float2 center = dispatchID.xy * cbInput.invTexSize;
     cache[groupThreadID.x + MAX_BLUR_SIZE] = input.SampleLevel(anisotropicClamp, center, 0.0f);
 	// Cache GBuffer Normal
-	float3 normalDir = gBuffer[2].SampleLevel(anisotropicClamp, center, 0.0f).xyz;
+	float3 normalDir = DecodeSphereMap(gBuffer[2].SampleLevel(anisotropicClamp, center, 0.0f).xy);
 	gBufferCache[groupThreadID.x + MAX_BLUR_SIZE].xyz = mul(normalDir, (float3x3)cbPass.g_view);
 	// Cache GBuffer Depth
 	float ndcZ = gBuffer[1].SampleLevel(anisotropicClamp, center, 0.0f).x;
@@ -39,7 +39,7 @@ void Horizontal(uint3 groupThreadID : SV_GROUPTHREADID, uint3 dispatchID : SV_DI
         float2 right = float2((dispatchID.x + offset[MAX_BLUR_SIZE]) * cbInput.invTexSize.x, dispatchID.y * cbInput.invTexSize.y);
         cache[groupThreadID.x + 2 * MAX_BLUR_SIZE] = input.SampleLevel(anisotropicClamp, right, 0.0f);
 		// Cache GBuffer Normal
-		float3 normalDir = gBuffer[2].SampleLevel(anisotropicClamp, right, 0.0f).xyz;
+		float3 normalDir = DecodeSphereMap(gBuffer[2].SampleLevel(anisotropicClamp, right, 0.0f).xy);
 		gBufferCache[groupThreadID.x + 2 * MAX_BLUR_SIZE].xyz = mul(normalDir, (float3x3)cbPass.g_view);
 		// Cache GBuffer Depth
 		float ndcZ = gBuffer[1].SampleLevel(anisotropicClamp, right, 0.0f).x;

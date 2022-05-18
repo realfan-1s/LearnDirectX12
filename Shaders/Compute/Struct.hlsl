@@ -44,4 +44,16 @@ SamplerState            linearClamp      : register(s3);
 SamplerState            anisotropicWrap  : register(s4);
 SamplerState            anisotropicClamp : register(s5);
 
+float2 EncodeSphereMap(float3 normal){
+    return normalize(normal.xy) * (sqrt(0.5f - 0.5f * normal.z));
+}
+
+float3 DecodeSphereMap(float2 encoded){
+    float4 length = float4(encoded, 1.0f, -1.0f);
+    float l = dot(length.xyz, -length.xyw);
+    length.z = l;
+    length.xy *= sqrt(l);
+    return length.xyz * 2 + float3(0, 0, -1.0f);
+}
+
 #endif

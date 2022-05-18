@@ -35,11 +35,10 @@ struct MaterialData
 struct MaterialConstant
 {
 	DirectX::XMFLOAT3	emission{ 0.0f, 0.0f, 0.0f };
-	float				roughness{ 0.25f };
-	float				metalness{ 0.25f };
 	UINT				diffuseIndex{ 0 };
 	UINT				normalIndex{ 0 };
-	UINT				objPad0{ 0 };
+	UINT				metalnessIndex{ 0 };
+	XMFLOAT2			gamePad0;
 };
 
 class Material

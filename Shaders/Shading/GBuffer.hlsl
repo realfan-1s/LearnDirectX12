@@ -48,14 +48,15 @@ GBuffer Frag(v2f o)
 	buffer.gDepth = o.pos.z;
 	// 可以尝试只传输MatIndex;这样可以大幅减少带宽
 	float4 sampleAlbedo = g_modelTexture[mat.diffuseIndex].Sample(anisotropicWrap, o.uv);
-	buffer.gAlbedo.xyz = sampleAlbedo.xyz;
-	buffer.gAlbedo.w = sampleAlbedo.w * mat.roughness;
+	clip(sampleAlbedo.a - 0.1f);
+	buffer.gAlbedo = sampleAlbedo;
 
 	// TBN计算
 	float3 normal = g_modelTexture[mat.normalIndex].Sample(anisotropicWrap, o.uv).xyz;
+	float2 metalRoughtness = g_modelTexture[mat.metalnessIndex].Sample(anisotropicWrap, o.uv).xy;
 	normal = CalcByTBN(normal, o.normal, o.tangent);
-	buffer.gNormal.xyz = normal;
-	buffer.gNormal.w = mat.metalness;
+	buffer.gNormal.xy = EncodeSphereMap(normal);
+	buffer.gNormal.zw = metalRoughtness;
 
 	return buffer;
 }

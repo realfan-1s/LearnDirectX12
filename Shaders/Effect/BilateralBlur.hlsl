@@ -33,8 +33,8 @@ float Frag(v2f o) : SV_TARGET {
 	// 计算中心值
 	float ans = blurWeight[5] * ssao.Sample(pointClamp, o.uv).x;
 	float totalWeight = blurWeight[5];
-	float3 centerNormal = gBuffer[2].Sample(pointClamp, o.uv).xyz;
-	float3 view_centerNormal = gBuffer[2].Sample(pointClamp, o.uv).xyz;
+	float3 centerNormal = DecodeSphereMap(gBuffer[2].Sample(pointClamp, o.uv).xy);
+	float3 view_centerNormal = mul(centerNormal, (float3x3)cbPass.g_view);
 	float centerNdcZ = gBuffer[1].Sample(pointClamp, o.uv).x;
 	float centerViewZ = cbPass.g_proj[3][2] / (centerNdcZ - cbPass.g_proj[2][2]);
 
@@ -42,7 +42,7 @@ float Frag(v2f o) : SV_TARGET {
 		if (i == 0)
 			continue;
 		float2 tex = o.uv + i * offsetUV;
-		float3 neighbourNormal = gBuffer[2].Sample(pointClamp, tex).xyz;
+		float3 neighbourNormal = DecodeSphereMap(gBuffer[2].Sample(pointClamp, tex).xy);
 		float3 view_neighbourNormal = mul(neighbourNormal, (float3x3)cbPass.g_view);
 		float neighbourNdcZ = gBuffer[1].Sample(gsamDepthMap, tex).x;
 		float neighbourViewZ = cbPass.g_proj[3][2] / (neighbourNdcZ - cbPass.g_proj[2][2]);

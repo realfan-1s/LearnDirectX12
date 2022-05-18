@@ -20,11 +20,10 @@ struct Light {
 
 struct Material {
     float3 emission;
-    float metalness;
-    float roughness;
     uint  diffuseIndex;
     uint  normalIndex;
-    uint  gobjPad0;
+    uint  metalnessIndex;
+    float2 gamePad0;
 };
 
 struct MaterialData {
@@ -119,6 +118,8 @@ float3 ComputeLighting(Light lights[MAX_LIGHTS], MaterialData mat, float3 pos, f
 float3 ACESToneMapping(float3 color);
 float3 CalcByTBN(float3 normSample, float3 normalW, float3 tangentW);
 float ShadowFilterByPCF(float4 shadowPos);
+float2 EncodeSphereMap(float3 normal);
+float3 DecodeSphereMap(float2 encoded);
 //TODO:finish PCSS
 // float ShadoFilterByPCSS(float4 shadowPos);
 // float FindBlocker(float3 fragToLight, float currDepth, float bias, float farPlaneSize, float3 dir);
@@ -174,7 +175,7 @@ float3 PhysicalShading(MaterialData mat, float ndotv, float ndotl, float ndoth, 
     kd *= 1.0f - mat.metalness;
     float3 diffuse = kd * INV_PI * mat.albedo;
 
-    float3 specular = fresnel * GGX(ndoth, r2) * Geometry(ndotv, ndotl, r2);
+    float3 specular = fresnel * GGX(ndoth, r2) * Geometry_UE(ndotv, ndotl, r2);
     float3 result = (diffuse + specular) * ndotl;
     return result;
 }
@@ -318,5 +319,17 @@ float ShadowFilterByPCF(float4 shadowPos){
 
 float CalcLuma(float3 col) {
 	return dot(col, float3(0.2126f, 0.7152f, 0.0722f));
+}
+
+float2 EncodeSphereMap(float3 normal){
+    return normalize(normal.xy) * (sqrt(0.5f - 0.5f * normal.z));
+}
+
+float3 DecodeSphereMap(float2 encoded){
+    float4 length = float4(encoded, 1.0f, -1.0f);
+    float l = dot(length.xyz, -length.xyw);
+    length.z = l;
+    length.xy *= sqrt(l);
+    return length.xyz * 2 + float3(0, 0, -1.0f);
 }
 #endif

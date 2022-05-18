@@ -48,13 +48,13 @@ PixelOut Frag(v2f o)
     float4 shadowPos = mul(frag, cbPass.shadowTansform);
     shadowPos.xyz /= shadowPos.w;
     float4 parameter = gBuffer[2].Sample(anisotropicClamp, o.uv);
-    float3 normalDir = parameter.xyz;
+    float3 normalDir = DecodeSphereMap(parameter.xy);
 
     MaterialData matData;
     matData.albedo = albedo.xyz;
-    matData.roughness = albedo.w;
-    matData.emission = float3(0, 0, 0);
+    matData.roughness = parameter.z;
     matData.metalness = parameter.w;
+    matData.emission = float3(0, 0, 0);
 
     float ao = ssao.Sample(anisotropicClamp, o.uv).x;
     float3 ans = ComputeLighting(cbPass.lights, matData, frag.xyz, normalDir, viewDir, shadowPos) + ambient * ao;

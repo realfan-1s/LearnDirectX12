@@ -23,7 +23,7 @@ bool ObjLoader::CreateObjFromFile(std::string_view fileName)
 	Importer importer;
 	string fullName(ModelPath);
 	fullName.append(fileName);
-	const aiScene* scene = importer.ReadFile(fullName, aiProcess_ConvertToLeftHanded | aiProcess_Triangulate | aiProcess_ImproveCacheLocality | aiProcess_CalcTangentSpace);
+	const aiScene* scene = importer.ReadFile(fullName, aiProcess_ConvertToLeftHanded | aiProcess_Triangulate | aiProcess_ImproveCacheLocality | aiProcess_CalcTangentSpace | aiProcess_GenSmoothNormals);
 	if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE | !scene->mRootNode)
 	{
 		std::cout << "ERROR::ASSIMP::" << importer.GetErrorString() << std::endl;

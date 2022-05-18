@@ -43,6 +43,7 @@ float4 Frag(v2f o) : SV_TARGET
 {
     Material mat = cbMaterial[o.matIndex];
     float4 sampleCol = g_modelTexture[mat.diffuseIndex].Sample(anisotropicWrap, o.uv);
+    clip(sampleCol.a - 0.1f);
     float3 albedo = sampleCol.xyz;
     float3 ambient = albedo * cbPass.ambient;
 
@@ -51,13 +52,14 @@ float4 Frag(v2f o) : SV_TARGET
     */
     float3 normalSample = g_modelTexture[mat.normalIndex].Sample(anisotropicWrap, o.uv).xyz;
     float3 normalDir = CalcByTBN(normalSample, o.normal, o.tangent);
+    float2 metalicRoughness = g_modelTexture[mat.metalnessIndex].Sample(anisotropicWrap, o.uv).xy;
 
     float3 viewDir = normalize(cbPass.g_cameraPos - o.frag);
     MaterialData matData;
     matData.albedo = albedo;
-    matData.roughness = mat.roughness * sampleCol.a;
+    matData.roughness = metalicRoughness.x;
+    matData.metalness = metalicRoughness.y;
     matData.emission = mat.emission;
-    matData.metalness = mat.metalness;
     float3 ans = ComputeLighting(cbPass.lights, matData, o.frag, normalDir, viewDir, o.shadowPos) + ambient;
 
     return float4(ans, sampleCol.a);
