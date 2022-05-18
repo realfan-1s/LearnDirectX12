@@ -247,7 +247,6 @@
     <ClCompile Include="Expansion\Material.cpp" />
     <ClCompile Include="Expansion\Renderer\DeferShading.cpp" />
     <ClCompile Include="Expansion\Renderer\GBuffer.cpp" />
-    <ClCompile Include="Expansion\Scene.cpp" />
     <ClCompile Include="Expansion\Texture.cpp" />
   </ItemGroup>
   <ItemGroup>

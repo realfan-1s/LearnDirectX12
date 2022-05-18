@@ -2,6 +2,7 @@
 
 #include <DirectXMath.h>
 #include "RenderToTexture.h"
+#include "Scene.h"
 
 namespace Effect
 {
@@ -30,6 +31,7 @@ protected:
 	void CreateDescriptors() override;
 	void CreateResources() override;
 private:
+	using Scene = Models::Scene;
 	CD3DX12_CPU_DESCRIPTOR_HANDLE	m_cpuDSV;
 	const Light*					m_mainLight;
 	XMMATRIX						m_shadowTransform;

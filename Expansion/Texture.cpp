@@ -33,16 +33,16 @@ void TextureMgr::Init(ID3D12Device* currDevice, ID3D12CommandQueue* cmdQueue)
 	m_srvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 }
 
-bool TextureMgr::InsertDDSTexture(std::string_view name, const std::wstring& fileName)
+UINT TextureMgr::InsertDDSTexture(std::string_view name, const std::wstring& fileName)
 {
 	HashID id = StringToID(name);
 	if (m_textureID.count(id))
 	{
-		return false;
+		return m_textureID[id];
 	}
 	m_textures.emplace_back(std::make_unique<Texture>(name, fileName, m_device.Get(), m_commandQueue.Get()));
 	m_textureID[id] = numDescriptor++;
-	return true;
+	return m_textureID[id];
 }
 
 void TextureMgr::GenerateSRVHeap()

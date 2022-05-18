@@ -43,9 +43,6 @@ float4 Frag(v2f o) : SV_TARGET
 {
     Material mat = cbMaterial[o.matIndex];
     float4 sampleCol = g_modelTexture[mat.diffuseIndex].Sample(anisotropicWrap, o.uv);
-#ifdef ALPHA
-    clip(sampleCol.a - 0.1f);
-#endif
     float3 albedo = sampleCol.xyz;
     float3 ambient = albedo * cbPass.ambient;
 

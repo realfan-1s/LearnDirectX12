@@ -37,7 +37,7 @@ public:
 	TextureMgr& operator=(const TextureMgr&) = delete;
 	TextureMgr& operator=(TextureMgr&&) = delete;
 	void Init(ID3D12Device* __restrict currDevice, ID3D12CommandQueue* __restrict cmdQueue);
-	bool InsertDDSTexture(std::string_view name, const std::wstring& fileName);
+	UINT InsertDDSTexture(std::string_view name, const std::wstring& fileName);
 	void GenerateSRVHeap();
 	UINT RegisterRenderToTexture(std::string_view name);
 	ID3D12DescriptorHeap* GetSRVDescriptorHeap() const;

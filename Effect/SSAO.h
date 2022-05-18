@@ -2,7 +2,6 @@
 
 #include "RenderToTexture.h"
 #include "UploaderBuffer.hpp"
-#include "GuassianBlur.h"
 #include "BilateralBlur.hpp"
 
 namespace Effect

@@ -6,6 +6,17 @@ MaterialData::MaterialData(std::string _name, UINT _matIndex, float _roughness, 
 {
 }
 
+INT Material::matIndex = -1;
+INT Material::GetMatIndex()
+{
+	return ++matIndex;
+}
+
+INT Material::GetMatSize()
+{
+	return matIndex;
+}
+
 void Material::CreateMaterial(const std::string& name, std::string_view texName, UINT materialCBIndex, float roughness, const XMFLOAT3& emission, float metalness, BlendType type)
 {
 	auto md = std::make_unique<MaterialData>(name, materialCBIndex, roughness, emission, metalness, type);

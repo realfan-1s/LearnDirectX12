@@ -1,110 +1,153 @@
 #include "ObjLoader.h"
-#include <fstream>
-#include <assimp/Importer.hpp>
-#include <assimp/scene.h>
+#include <iostream>
 #include <assimp/postprocess.h>
+#include <assimp/Importer.hpp>
+#include <filesystem>
 
 using namespace Models;
 using namespace Assimp;
 
-// ReSharper disable once CppVariableCanBeMadeConstexpr
 const std::string_view Models::ModelPath = "Resources/Models/";
 
-void ObjLoader::Init(ID3D12Device* device, ID3D12CommandQueue* queue)
+void ObjLoader::Init(ID3D12Device* device, ID3D12GraphicsCommandList* cmdList)
 {
 	m_device = device;
-	m_commandQueue = queue;
+	m_cmdList = cmdList;
 }
 
-const Model* ObjLoader::CreateObjFromFile(std::string_view fileName)
+bool ObjLoader::CreateObjFromFile(std::string_view fileName)
 {
 	HashID id = StringToID(fileName);
 	if (m_models.count(id))
-	{
-		return m_models[id].get();
-	}
+		return true;
 	Importer importer;
-	std::string fullPath(ModelPath);
-	fullPath.append(fileName);
-	auto aiScene = importer.ReadFile(fullPath, aiProcess_ConvertToLeftHanded | aiProcess_GenBoundingBoxes | aiProcess_Triangulate | aiProcess_ImproveCacheLocality | aiProcess_CalcTangentSpace);
-	if (aiScene && !(aiScene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) && aiScene->HasMeshes())
+	string fullName(ModelPath);
+	fullName.append(fileName);
+	const aiScene* scene = importer.ReadFile(fullName, aiProcess_ConvertToLeftHanded | aiProcess_Triangulate | aiProcess_ImproveCacheLocality | aiProcess_CalcTangentSpace);
+	if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE | !scene->mRootNode)
 	{
-		std::shared_ptr<Model> model = std::make_shared<Model>();
-		model->submesh.reserve(aiScene->mNumMeshes);
-		model->materialData.reserve(aiScene->mNumMaterials);
-
-		unsigned int vboCount = 0, eboCount = 0;
-		for (auto i = 0U; i < aiScene->mNumMeshes; ++i)
-		{
-			auto aiMesh = aiScene->mMeshes[i];
-			vboCount += aiMesh->mNumVertices;
-			// 添加EBO
-			for (auto j = 0U; j < aiMesh->mNumFaces; ++j)
-			{
-				aiFace face = aiMesh->mFaces[j];
-				eboCount += face.mNumIndices;
-			}
-		}
-
-		SubAdvMesh submesh;
-		AdvMeshData meshData;
-		AdvMaterialData matData;
-		meshData.VBOs.reserve(vboCount);
-		meshData.EBOs.reserve(eboCount);
-		// process node part
-		for (auto i = 0U; i < aiScene->mNumMeshes; ++i)
-		{
-			submesh.vboStart = meshData.VBOs.size();
-			submesh.eboStart = meshData.EBOs.size();
-			auto aiMesh = aiScene->mMeshes[i];
-			// 添加VBO
-			for (auto j = 0U; j < aiMesh->mNumVertices; ++j)
-			{
-				Vertex_CPU vert{};
-
-				XMFLOAT3 pos(aiMesh->mVertices[j].x, aiMesh->mVertices[j].y, aiMesh->mVertices[j].z);
-				vert.pos = std::move(pos);
-				if (aiMesh->HasNormals())
-				{
-					XMFLOAT3 norm(aiMesh->mNormals[j].x, aiMesh->mNormals[j].y, aiMesh->mNormals[j].z);
-					vert.normal = std::move(norm);
-				}
-				if (aiMesh->mTextureCoords[0])
-				{
-					XMFLOAT2 uv(aiMesh->mTextureCoords[0][j].x, aiMesh->mTextureCoords[0][j].y);
-					XMFLOAT3 tan(aiMesh->mTangents[j].x, aiMesh->mTangents[j].y, aiMesh->mTangents[j].z);
-					vert.tex = std::move(uv);
-					vert.tangent = std::move(tan);
-				}
-
-				meshData.VBOs.emplace_back(std::move(vert));
-			}
-
-			// 添加EBO
-			for (auto j = 0U; j < aiMesh->mNumFaces; ++j)
-			{
-				aiFace face = aiMesh->mFaces[j];
-				for (auto n = 0U; n < face.mNumIndices; ++n)
-				{
-					meshData.EBOs.emplace_back(face.mIndices[n]);
-				}
-			}
-
-			// 加载纹理
-			model->submesh.emplace_back(submesh);
-			model->materialData.emplace_back(matData);
-		}
-		model->meshData = std::move(meshData);
-		m_models[id] = std::move(model);
-		return model.get();
+		std::cout << "ERROR::ASSIMP::" << importer.GetErrorString() << std::endl;
+		return false;
 	}
-	return nullptr;
+	m_models[id] = std::make_shared<Model>();
+	ProcessNode(scene->mRootNode, scene, fileName);
+	return true;
 }
 
-Models::ObjLoader::ObjLoader(Singleton<ObjLoader>::Token) : Singleton<Models::ObjLoader>()
+bool ObjLoader::CreateObjFromFile(const char* fileName)
 {
+	const std::string_view files(fileName);
+	return CreateObjFromFile(files);
 }
 
-void ObjLoader::RegisterTex(const std::wstring& fileName)
+optional<shared_ptr<Model>> ObjLoader::GetObj(std::string_view fileName)
 {
+	HashID id = StringToID(fileName);
+	if (!m_models.count(id))
+		return nullopt;
+	return m_models[id];
 }
+
+void ObjLoader::UpdateSpecificModel
+(std::string_view fileName, const GameTimer& timer,
+UploaderBuffer<MaterialConstant>* currMatConstant)
+{
+	HashID id = StringToID(fileName);
+	m_models[id]->objMat->Update(timer, currMatConstant);
+}
+
+void ObjLoader::UpdateAllModels(const GameTimer& timer, UploaderBuffer<MaterialConstant>* currMatConstant)
+{
+	for (const auto& [id, mod] : m_models)
+	{
+		mod->objMat->Update(timer, currMatConstant);
+	}
+}
+
+void ObjLoader::ProcessNode(aiNode* node, const aiScene* scene, std::string_view fileName)
+{
+	const HashID id = StringToID(fileName);
+	m_models[id]->meshData.resize(scene->mNumMeshes);
+	m_models[id]->submesh.resize(scene->mNumMeshes);
+	UINT vboOffset = 0;
+	UINT eboOffset = 0;
+	// 处理材质
+	for (UINT i = 0; i < scene->mNumMaterials; ++i)
+	{
+		const auto& mat = scene->mMaterials[i];
+		std::unique_ptr<MaterialData> data = make_unique<MaterialData>();
+		data->type = BlendType::opaque;
+		data->materialCBIndex = Material::GetMatIndex();
+		data->name = mat->GetName().C_Str();
+		data->diffuseIndex = LoadMaterialTextures(mat, aiTextureType_DIFFUSE, fileName, i);
+		data->metalnessIndex = LoadMaterialTextures(mat, aiTextureType_SPECULAR, fileName, i);
+		data->normalIndex = LoadMaterialTextures(mat, aiTextureType_AMBIENT, fileName, i);
+		m_models[id]->objMat->CreateMaterial(std::move(data));
+	}
+
+	// 处理节点所有的网格
+	for (UINT i = 0; i < scene->mNumMeshes; ++i)
+	{
+		aiMesh* mesh = scene->mMeshes[i];
+		m_models[id]->submesh[i].materialName = scene->mMaterials[mesh->mMaterialIndex]->GetName().C_Str();
+		m_models[id]->submesh[i].vboStart = vboOffset;
+		m_models[id]->submesh[i].eboStart = eboOffset;
+		m_models[id]->submesh[i].eboCount = mesh->mNumFaces * 3;
+		ProcessMesh(mesh, scene, fileName, i);
+		vboOffset += mesh->mNumVertices;
+		eboOffset += mesh->mNumFaces * 3;
+	}
+}
+
+void ObjLoader::ProcessMesh(const aiMesh* mesh, const aiScene* scene, std::string_view fileName, UINT idx)
+{
+	HashID id = StringToID(fileName);
+	auto& vbos = m_models[id]->meshData[idx].VBOs;
+	vbos.reserve(mesh->mNumVertices);
+	auto& ebos = m_models[id]->meshData[idx].EBOs;
+	ebos.reserve(3LL * mesh->mNumFaces);
+	// 处理顶点位置
+	for (UINT i = 0; i < mesh->mNumVertices; ++i)
+	{
+		vbos.emplace_back(Vertex_CPU{});
+		// 顶点位置、法线、坐标
+		vbos[i].pos = { mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z};
+		vbos[i].normal = { mesh->mNormals[i].x, mesh->mNormals[i].y, mesh->mNormals[i].z };
+		vbos[i].tangent = { mesh->mTangents[i].x, mesh->mTangents[i].y, mesh->mTangents[i].z };
+		vbos[i].bitangent = { mesh->mBitangents[i].x, mesh->mBitangents[i].y, mesh->mBitangents[i].z };
+		mesh->mTextureCoords[0] ? vbos[i].tex = { mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y } : vbos[i].tex = { 0.0f, 0.0f };
+	}
+	// 处理EBO
+	for (UINT i = 0; i < mesh->mNumFaces; ++i)
+	{
+		aiFace face = mesh->mFaces[i];
+		for (UINT j = 0; j < face.mNumIndices; ++j)
+		{
+			ebos.emplace_back(face.mIndices[j]);
+		}
+	}
+}
+
+UINT ObjLoader::LoadMaterialTextures(aiMaterial* mat, aiTextureType type, std::string_view fileName, UINT idx)
+{
+	HashID id = StringToID(fileName);
+	string fullPath(ModelPath);
+	fullPath.append(fileName);
+	const filesystem::path myPath(fullPath);
+	aiString aiPath;
+	if (mat->GetTextureCount(type) > 0)
+	{
+		mat->GetTexture(type, 0, &aiPath);
+		filesystem::path tex = myPath.parent_path() / aiPath.C_Str();
+		if (type == aiTextureType_DIFFUSE)
+			return TextureMgr::instance().InsertDDSTexture(aiPath.C_Str(), tex.wstring());
+		if (type == aiTextureType_SPECULAR)
+			return TextureMgr::instance().InsertDDSTexture(aiPath.C_Str(), tex.wstring());
+		if (type == aiTextureType_AMBIENT)
+			return TextureMgr::instance().InsertDDSTexture(aiPath.C_Str(), tex.wstring());
+	}
+	return 0;
+}
+
+Models::ObjLoader::ObjLoader(Singleton<ObjLoader>::Token) : Singleton<Models::ObjLoader>(), m_modelMesh(std::make_unique<Mesh>())
+{}

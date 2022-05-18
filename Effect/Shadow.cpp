@@ -1,6 +1,5 @@
 #include "Shadow.h"
 #include "D3DUtil.hpp"
-#include <Scene.h>
 #include "RtvDsvMgr.h"
 
 Effect::Shadow::Shadow(ID3D12Device* _device, UINT _width, DXGI_FORMAT _format) : RenderToTexture(_device, _width, _width, _format)

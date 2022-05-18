@@ -397,8 +397,8 @@ void BilateralBlur<T, enable_if_t<blurByType<T>::value == 1, int>>::Draw(
 template <typename T>
 void BilateralBlur<T, enable_if_t<blurByType<T>::value == 1, int>>::CreateResources()
 {
-	shrinkWidth = std::ceilf(static_cast<float>(m_width) / 4.0f);
-	shrinkHeight = std::ceilf(static_cast<float>(m_height) / 4.0f);
+	shrinkWidth = static_cast<UINT>(std::ceilf(static_cast<float>(m_width) / 4.0f));
+	shrinkHeight = static_cast<UINT>(std::ceilf(static_cast<float>(m_height) / 4.0f));
 	invShrinkWidth = 1.0f / static_cast<float>(shrinkWidth);
 	invShrinkHeight = 1.0f / static_cast<float>(shrinkHeight);
 	D3D12_RESOURCE_DESC resDesc;

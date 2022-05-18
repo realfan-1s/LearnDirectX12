@@ -4,7 +4,6 @@
 #include <wrl/client.h>
 #include <d3d12.h>
 #include <dxgi1_6.h>
-#include <DirectXCollision.h>
 #include <unordered_map>
 #include "D3DUtil.hpp"
 #include "Material.h"
@@ -92,8 +91,6 @@ struct Submesh
 	UINT eboStart = 0;
 	UINT vboStart = 0;
 
-	// submeshµÄAABB°üÎ§ºÐ
-	DirectX::BoundingBox bound;
 	virtual ~Submesh() = default;
 };
 

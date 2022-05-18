@@ -227,9 +227,6 @@
     <ClCompile Include="Effect\GuassianBlur.cpp">
       <Filter>源文件\Effect\PostProcess</Filter>
     </ClCompile>
-    <ClCompile Include="Expansion\Scene.cpp">
-      <Filter>源文件\Expansion</Filter>
-    </ClCompile>
     <ClCompile Include="Effect\TexSizeChange.cpp">
       <Filter>源文件\Effect\PostProcess</Filter>
     </ClCompile>

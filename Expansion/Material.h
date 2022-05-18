@@ -18,6 +18,7 @@ struct MaterialData
 	UINT				diffuseIndex;
 	// 法线贴图在SRV堆中的索引
 	UINT				normalIndex;
+	UINT				metalnessIndex;
 	int					dirtyFlag = frameResourcesCount;
 	BlendType			type;
 	// 用于着色的材质常量缓冲区数据
@@ -38,14 +39,18 @@ struct MaterialConstant
 	float				metalness{ 0.25f };
 	UINT				diffuseIndex{ 0 };
 	UINT				normalIndex{ 0 };
-	UINT				objPad0;
+	UINT				objPad0{ 0 };
 };
 
 class Material
 {
 public:
+	static INT GetMatSize();
+	static INT GetMatIndex();
 	std::unordered_map<std::string, std::unique_ptr<MaterialData>> m_data;
 	void CreateMaterial(const std::string& name, std::string_view texName, UINT materialCBIndex, float roughness, const XMFLOAT3& emission, float metalness, BlendType type);
 	void CreateMaterial(std::unique_ptr<MaterialData> data);
 	void Update(const GameTimer& timer, UploaderBuffer<MaterialConstant>* currMatConstant);
+private:
+	static INT matIndex;
 };
