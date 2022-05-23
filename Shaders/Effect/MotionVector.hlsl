@@ -28,16 +28,13 @@ v2f Vert(uint vertexID : SV_VERTEXID) {
     return o;
 }
 
+//TODO:存在问题！
 float2 Frag(v2f o) : SV_TARGET {
 	float ndcZ = gBuffer[1].Sample(anisotropicClamp, o.uv).x;
 	float viewZ = cbPass.g_proj[3][2] / (ndcZ - cbPass.g_proj[2][2]);
 	float4 pos = float4(cbPass.g_cameraPos + o.rayDir.xyz * (viewZ / cbPass.g_nearZ), 1.0f);
-	float4 currUV = mul(pos, cbPass.g_vp);
-	currUV.xyz /= currUV.w;
-	currUV.xy -= float2(cbInput.w2, cbInput.w3);
 	float4 prevUV = mul(pos, cbPass.g_previousVP);
-	prevUV.xyz /= prevUV.w;
-	prevUV.xy -= float2(cbInput.w0, cbInput.w1);
+	float4 currUV = mul(pos, cbPass.g_nonjitteredVP);
 	return currUV.xy - prevUV.xy;
 }
 

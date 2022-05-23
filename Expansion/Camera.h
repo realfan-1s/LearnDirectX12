@@ -34,6 +34,8 @@ public:
 	XMMATRIX			GetCurrViewXM() const;
 	const XMFLOAT4X4&	GetCurrProj() const;
 	XMMATRIX			GetCurrProjXM() const;
+	const XMFLOAT4X4&   GetNonjitteredProj() const;
+	XMMATRIX			GetNonjitteredProjXM() const;
 
 	/*
 	 * 获取视口
@@ -52,8 +54,10 @@ public:
 
 	XMFLOAT4X4			GetCurrVP() const;
 	XMMATRIX			GetCurrVPXM() const;
-	const XMFLOAT4X4&	GetPreviousVP() const;
-	XMMATRIX			GetPreviousVPXM() const;
+	XMFLOAT4X4			GetNonjitteredCurrVP() const;
+	XMMATRIX			GetNonjitteredCurrVPXM() const;
+	const XMFLOAT4X4&	GetNonJitteredPreviousVP() const;
+	XMMATRIX			GetNonJitteredPreviousVPXM() const;
 	XMMATRIX			GetInvProjXM() const;
 	XMFLOAT4X4			GetInvProj() const;
 	XMMATRIX			GetInvViewXM() const;
@@ -63,7 +67,7 @@ public:
 	XMMATRIX			GetViewPortRayXM() const;
 	XMFLOAT4X4			GetViewPortRay() const;
 
-	void SetJitter(const XMFLOAT2& prev, const XMFLOAT2& curr);
+	void SetJitter(const XMFLOAT2& curr);
 	void SetFrustum(float fov, float aspect, float nearZ, float farZ);
 	void SetFrustumReverseZ(float fov, float aspect, float nearZ, float farZ);
 	void SetViewPort(const D3D12_VIEWPORT& viewport);
@@ -91,6 +95,7 @@ public:
 protected:
 	std::shared_ptr<Transform>	m_transform{ nullptr };
 	D3D12_VIEWPORT				m_viewport{};
+	XMFLOAT4X4					m_nonjitteredProj{ MathHelper::MathHelper::identity4x4() };
 	XMFLOAT4X4					m_previousVP{ MathHelper::MathHelper::identity4x4() };
 	XMFLOAT4X4					m_proj{ MathHelper::MathHelper::identity4x4() };
 	XMFLOAT4X4					m_view{ MathHelper::MathHelper::identity4x4() };

@@ -240,7 +240,7 @@ void BoxApp::OnKeyboardInput(const GameTimer& timer)
 	if (GetAsyncKeyState('D') & 0x8000)
 		m_camera->Strafe(20.0f * delta);
 
-	m_camera->SetJitter(m_TemporalAA->GetPrevJitter(), m_TemporalAA->GetJitter());
+	m_camera->SetJitter(m_TemporalAA->GetJitter());
 	m_camera->Update();
 }
 
@@ -387,7 +387,7 @@ void BoxApp::CreateLights()
 {
 	LightData dirLight0;
 	dirLight0.direction = { 0.57735f, -0.57735f, 0.57735f };
-	dirLight0.strength = { 0.8f, 0.8f, 0.8f };
+	dirLight0.strength = { 1.8f, 1.8f, 1.8f };
 	m_lights.emplace_back(std::make_shared<Light>(std::move(dirLight0)));
 	LightData dirLight1;
 	dirLight1.direction = { -0.57735f, -0.57735f, 0.57735f };
@@ -810,7 +810,8 @@ void BoxApp::UpdatePostProcess(const GameTimer& timer)
 	XMStoreFloat4x4(&ppp.view_gpu, XMMatrixTranspose(m_camera->GetCurrViewXM()));
 	XMStoreFloat4x4(&ppp.proj_gpu, XMMatrixTranspose(m_camera->GetCurrProjXM()));
 	XMStoreFloat4x4(&ppp.vp_gpu, XMMatrixTranspose(m_camera->GetCurrVPXM()));
-	XMStoreFloat4x4(&ppp.previousVP_gpu, XMMatrixTranspose(m_camera->GetPreviousVPXM()));
+	XMStoreFloat4x4(&ppp.nonjitteredVP_gpu, XMMatrixTranspose(m_camera->GetNonjitteredCurrVPXM()));
+	XMStoreFloat4x4(&ppp.previousVP_gpu, XMMatrixTranspose(m_camera->GetNonJitteredPreviousVPXM()));
 	XMStoreFloat4x4(&ppp.invProj_gpu, XMMatrixTranspose(m_camera->GetInvProjXM()));
 	XMStoreFloat4x4(&ppp.viewPortRay_gpu, XMMatrixTranspose(m_camera->GetViewPortRayXM()));
 	ppp.nearZ_gpu = m_camera->m_nearPlane;

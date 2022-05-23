@@ -20,6 +20,7 @@ struct ComputeConstant
     float4x4 g_view;
     float4x4 g_proj;
     float4x4 g_vp;
+    float4x4 g_nonjitteredVP;
     float4x4 g_previousVP;
     float4x4 g_invProj;
     float4x4 g_viewPortRay;

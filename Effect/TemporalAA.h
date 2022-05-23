@@ -24,7 +24,6 @@ public:
 	void FirstDraw(ID3D12GraphicsCommandList* cmdList, const D3D12_CPU_DESCRIPTOR_HANDLE& depthHandler, const std::function<void()>& drawFunc) const;
 	void CreateDescriptors(D3D12_CPU_DESCRIPTOR_HANDLE srvCpuStart, D3D12_GPU_DESCRIPTOR_HANDLE srvGpuStart, D3D12_CPU_DESCRIPTOR_HANDLE rtvCpuStart, UINT srvSize, UINT rtvSize);
 	XMFLOAT2 GetJitter() const;
-	XMFLOAT2 GetPrevJitter() const;
 	D3D12_GPU_DESCRIPTOR_HANDLE GetMotionVector() const;
 	const D3D12_CPU_DESCRIPTOR_HANDLE& GetPrevRTV() const;
 private:

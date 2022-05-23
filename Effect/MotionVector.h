@@ -20,7 +20,6 @@ public:
 	void CreateDescriptors(D3D12_CPU_DESCRIPTOR_HANDLE srvCpuStart, D3D12_GPU_DESCRIPTOR_HANDLE srvGpuStart, D3D12_CPU_DESCRIPTOR_HANDLE rtvCpuStart, UINT srvSize, UINT rtvSize);
 	void Update(const GameTimer& timer, const std::function<void(UINT, PassConstant&)>& updateFunc) override;
 	void Draw(ID3D12GraphicsCommandList* cmdList, const std::function<void(UINT)>& drawFunc) const override;
-	void SetJitter(const XMFLOAT2& prev, const XMFLOAT2& curr);
 private:
 	void CreateDescriptors() override;
 	void CreateResources() override;
@@ -29,8 +28,6 @@ private:
 	CD3DX12_CPU_DESCRIPTOR_HANDLE	m_cpuRTV;
 	UINT							motionVectorSRVIdx;
 	UINT							motionVectorRTVIdx;
-	XMFLOAT2						currJitter;
-	XMFLOAT2						prevJitter;
 };
 }
 

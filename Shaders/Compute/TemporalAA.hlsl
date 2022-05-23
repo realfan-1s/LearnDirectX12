@@ -24,20 +24,24 @@ float3 Unmap(in float3 col) {
 }
 
 float3 ConvertToYCoCg(in float3 col) {
-	float3x3 converMat = float3x3(0.25f, 0.5f, 0.25f,
-						0.5f, 0.0f, -0.5f,
-						-0.25f, 0.5f, -0.25f);
-	float3 ans = mul(col, converMat);
-	return ans;
+	float Co = col.x - col.z;
+	float temp = col.z + Co * 0.5f;
+	float Cg = col.y - temp;
+	float Y = temp + Cg * 0.5f;
+	return float3(Y, Co, Cg);
 }
 
 float3 InverseConvertToYCoCg(in float3 col){
-	float3x3 convertMat = float3x3(1.0f, 1.0f, -1.0f,
-								   1.0f, 0.0f,  1.0f,
-								   1.0f, -1.0f, -1.0f);
-	float3 ans = mul(col, convertMat);
-	return ans;
+	float temp = col.x - col.z * 0.5f;
+	float G = col.z + temp;
+	float B = temp - 0.5f * col.y;
+	float R = B + col.y;
+	return float3(R, G, B);
 }
+
+static const float2 offset[] = {{-1.0f, 1.0f},  {1.0f, 1.0f},  {1.0f, 1.0f},
+								{-1.0f, 0.0f},                 {1.0f, 1.0f},
+								{-1.0f, -1.0f}, {-1.0f, 0.0f}, {-1.0f, 1.0f}};
 
 [numthreads(16, 16, 1)]
 void Aliasing(uint2 dispatchID : SV_DISPATCHTHREADID, uint2 groupID : SV_GROUPID){
@@ -45,28 +49,23 @@ void Aliasing(uint2 dispatchID : SV_DISPATCHTHREADID, uint2 groupID : SV_GROUPID
 	// 采样Motion Vector并去除Jitter
 	float2 motion = motionVector.SampleLevel(anisotropicClamp, uv, 0.0f).xy;
 	uv -= float2(cbInput.w0, cbInput.w1);
-	const float2 k = float2(1.0f, 1.0f) * cbInput.invTexSize;
 	float3 center = Map(input1.SampleLevel(anisotropicClamp, uv, 0.0f).xyz);
 
 	// 混合采样周围点
 	float3 standard = ConvertToYCoCg(center);
-	float3 neighbours[8];
-	neighbours[0] = ConvertToYCoCg(Map(input1.SampleLevel(anisotropicClamp, uv + float2(k.x, k.y), 0.0f).xyz  ));
-	neighbours[1] = ConvertToYCoCg(Map(input1.SampleLevel(anisotropicClamp, uv + float2(k.x, -k.y), 0.0f).xyz ));
-	neighbours[2] = ConvertToYCoCg(Map(input1.SampleLevel(anisotropicClamp, uv + float2(-k.x, k.y), 0.0f).xyz ));
-	neighbours[3] = ConvertToYCoCg(Map(input1.SampleLevel(anisotropicClamp, uv + float2(-k.x, -k.y), 0.0f).xyz));
-	neighbours[4] = ConvertToYCoCg(Map(input1.SampleLevel(anisotropicClamp, uv + float2(k.x, 0.0f), 0.0f).xyz ));
-	neighbours[5] = ConvertToYCoCg(Map(input1.SampleLevel(anisotropicClamp, uv + float2(0.0f, k.y), 0.0f).xyz ));
-	neighbours[6] = ConvertToYCoCg(Map(input1.SampleLevel(anisotropicClamp, uv + float2(-k.x, 0.0f), 0.0f).xyz));
-	neighbours[7] = ConvertToYCoCg(Map(input1.SampleLevel(anisotropicClamp, uv + float2(0.0f, -k.y), 0.0f).xyz));
-
+	float3 average = standard;
+	float3 m2 = standard * standard;
 	// 对历史帧颜色进行clamp
-	float3 average = (center 	  + neighbours[0] + neighbours[1] +
-					neighbours[2] + neighbours[3] + neighbours[4] +
-					neighbours[5] + neighbours[6] + neighbours[7]) / 9.0f;
-	float3 m2 = (center * center 			  + neighbours[0] * neighbours[0] + neighbours[1] * neighbours[1] +
-				neighbours[2] * neighbours[2] + neighbours[3] * neighbours[3] + neighbours[4] * neighbours[4] +
-				neighbours[5] * neighbours[5] + neighbours[6] * neighbours[6] + neighbours[7] * neighbours[7]) / 9.0f;
+	[unroll]
+	for (uint i = 0; i < 8; ++i){
+		float2 neighbourUV = uv + offset[i] * cbInput.invTexSize;
+		float3 neighbourCol = ConvertToYCoCg(Map(input1.SampleLevel(anisotropicClamp, neighbourUV, 0.0f).xyz));
+		average += neighbourCol;
+		m2 += neighbourCol * neighbourCol;
+	}
+	average /= 8.0f;
+	m2 /= 8.0f;
+
 	float3 sigma = sqrt(m2 - average * average);
 	float3 minColor = average - cbInput.w2 * sigma;
 	float3 maxColor = average + cbInput.w2 * sigma;

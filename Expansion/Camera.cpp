@@ -4,12 +4,13 @@ Camera::Camera() : m_transform(std::make_shared<Transform>())
 {
 }
 
-void Camera::SetJitter(const XMFLOAT2& prev, const XMFLOAT2& curr)
+void Camera::SetJitter(const XMFLOAT2& curr)
 {
-	const auto newProj = std::move(XMMatrixSet(m_proj._11,	m_proj._12, m_proj._13 , m_proj._14,
-		m_proj._21,						m_proj._22,					  m_proj._23, m_proj._24,
-		m_proj._31 - prev.x + curr.x,   m_proj._32 - prev.y + curr.y, m_proj._33, m_proj._34,
-		m_proj._41,						m_proj._42,                   m_proj._43, m_proj._44));
+	const auto newProj = std::move(XMMatrixSet(
+		m_nonjitteredProj._11,			m_nonjitteredProj._12, m_nonjitteredProj._13, m_nonjitteredProj._14,
+		m_nonjitteredProj._21 + curr.x, m_nonjitteredProj._22, m_nonjitteredProj._23, m_nonjitteredProj._24,
+		m_nonjitteredProj._31 + curr.y, m_nonjitteredProj._32, m_nonjitteredProj._33, m_nonjitteredProj._34,
+		m_nonjitteredProj._41,			m_nonjitteredProj._42, m_nonjitteredProj._43, m_nonjitteredProj._44));
 	XMStoreFloat4x4(&m_proj, newProj);
 }
 
@@ -63,6 +64,16 @@ XMMATRIX Camera::GetCurrProjXM() const
 	return DirectX::XMLoadFloat4x4(&GetCurrProj());
 }
 
+const XMFLOAT4X4& Camera::GetNonjitteredProj() const
+{
+	return m_nonjitteredProj;
+}
+
+XMMATRIX Camera::GetNonjitteredProjXM() const
+{
+	return XMLoadFloat4x4(&GetNonjitteredProj());
+}
+
 const D3D12_VIEWPORT& Camera::GetViewPort() const
 {
 	return m_viewport;
@@ -110,12 +121,24 @@ XMMATRIX Camera::GetCurrVPXM() const
 	return XMMatrixMultiply(GetCurrViewXM(), GetCurrProjXM());
 }
 
-const XMFLOAT4X4& Camera::GetPreviousVP() const
+XMFLOAT4X4 Camera::GetNonjitteredCurrVP() const
+{
+	XMFLOAT4X4 currVP;
+	DirectX::XMStoreFloat4x4(&currVP, GetNonjitteredCurrVPXM());
+	return currVP;
+}
+
+XMMATRIX Camera::GetNonjitteredCurrVPXM() const
+{
+	return XMMatrixMultiply(GetCurrViewXM(), GetNonjitteredProjXM());
+}
+
+const XMFLOAT4X4& Camera::GetNonJitteredPreviousVP() const
 {
 	return m_previousVP;
 }
 
-XMMATRIX Camera::GetPreviousVPXM() const
+XMMATRIX Camera::GetNonJitteredPreviousVPXM() const
 {
 	return DirectX::XMLoadFloat4x4(&m_previousVP);
 }
@@ -187,7 +210,8 @@ void Camera::SetFrustum(float fov, float aspect, float nearZ, float farZ)
 	m_nearWndHeight = 2.0f * m_nearPlane * std::tanf(0.5f * m_fov);
 	m_farWndHeight = 2.0f * m_farPlane * std::tanf(0.5f * m_fov);
 	XMMATRIX proj = XMMatrixPerspectiveFovLH(m_fov, m_aspect, m_nearPlane, m_farPlane);
-	DirectX::XMStoreFloat4x4(&m_proj, proj);
+	DirectX::XMStoreFloat4x4(&m_nonjitteredProj, proj);
+	m_proj = m_nonjitteredProj;
 }
 
 void Camera::SetFrustumReverseZ(float fov, float aspect, float nearZ, float farZ) {
@@ -199,7 +223,8 @@ void Camera::SetFrustumReverseZ(float fov, float aspect, float nearZ, float farZ
 	m_nearWndHeight = 2.0f * m_nearPlane * std::tanf(0.5f * m_fov);
 	m_farWndHeight = 2.0f * m_farPlane * std::tanf(0.5f * m_fov);
 	XMMATRIX proj = XMMatrixPerspectiveFovLH(m_fov, m_aspect, m_nearPlane, m_farPlane);
-	DirectX::XMStoreFloat4x4(&m_proj, proj);
+	DirectX::XMStoreFloat4x4(&m_nonjitteredProj, proj);
+	m_proj = m_nonjitteredProj;
 }
 
 void Camera::SetViewPort(const D3D12_VIEWPORT& viewport)
@@ -232,7 +257,7 @@ FirstPersonCamera::~FirstPersonCamera() = default;
 
 void FirstPersonCamera::Update()
 {
-	m_previousVP = std::move(GetCurrVP());
+	m_previousVP = std::move(GetNonjitteredCurrVP());
 	if (isMoved)
 	{
 		XMVECTOR right = std::move(GetCurrRightXM());

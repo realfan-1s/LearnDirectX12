@@ -61,18 +61,8 @@ void Effect::MotionVector::Draw(ID3D12GraphicsCommandList* cmdList, const std::f
 	cmdList->OMSetRenderTargets(1, &m_cpuRTV, true, nullptr);
 	cmdList->SetPipelineState(m_pso.Get());
 	cmdList->SetName(L"MotionVector");
-	const float optPivot[] = { static_cast<float>(m_width), static_cast<float>(m_height),
-							 1.0f / static_cast<float>(m_width), 1.0f / static_cast<float>(m_height),
-							prevJitter.x, prevJitter.y, currJitter.x, currJitter.y };
-	cmdList->SetGraphicsRoot32BitConstants(0U, 8U, &optPivot, 0);
 	DrawCanvas(cmdList);
 	ChangeState<D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_GENERIC_READ>(cmdList, m_resource.Get());
-}
-
-void MotionVector::SetJitter(const XMFLOAT2& prev, const XMFLOAT2& curr)
-{
-	prevJitter = prev;
-	currJitter = curr;
 }
 
 void MotionVector::CreateDescriptors()

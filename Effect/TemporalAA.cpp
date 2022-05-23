@@ -42,9 +42,6 @@ void TemporalAA::InitTexture(const string& temporalName, const string& prevName,
 
 void TemporalAA::Update(const GameTimer& timer, const std::function<void(UINT, PassConstant&)>& updateFunc)
 {
-	XMFLOAT2 currJitter = GetJitter();
-	XMFLOAT2 prevJitter = GetPrevJitter();
-	m_motionVector->SetJitter(prevJitter, currJitter);
 }
 
 void TemporalAA::OnResize(UINT newWidth, UINT newHeight)
@@ -69,7 +66,7 @@ void TemporalAA::Draw(ID3D12GraphicsCommandList* cmdList, const std::function<vo
 	auto jitters = GetJitter();
 	const float parameters[] = { static_cast<float>(m_width), static_cast<float>(m_height),
 								1.0f / static_cast<float>(m_width) , 1.0f / static_cast<float>(m_height),
-								jitters.x, jitters.y, 0.95f, 0.98f, 0.85f };
+								jitters.x, jitters.y, 0.78f, 0.98f, 0.85f };
 	ChangeState<D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_UNORDERED_ACCESS>(cmdList, m_resource.Get());
 	cmdList->SetComputeRoot32BitConstants(0, 9, &parameters, 0);
 	drawFunc(NULL); 
@@ -134,14 +131,6 @@ void TemporalAA::CreateDescriptors(D3D12_CPU_DESCRIPTOR_HANDLE srvCpuStart, D3D1
 XMFLOAT2 TemporalAA::GetJitter() const
 {
 	auto& num = MathHelper::HaltonSequence<8>().value[jitterPivot];
-	XMFLOAT2 ans = XMFLOAT2((num.x * 2.0f - 1.0f) / m_width, (num.y * 2.0f - 1.0f) / m_height);
-	return ans;
-}
-
-XMFLOAT2 TemporalAA::GetPrevJitter() const
-{
-	UINT prevPivot = (jitterPivot + 7) % 8;
-	auto& num = MathHelper::HaltonSequence<8>().value[prevPivot];
 	XMFLOAT2 ans = XMFLOAT2((num.x * 2.0f - 1.0f) / m_width, (num.y * 2.0f - 1.0f) / m_height);
 	return ans;
 }
