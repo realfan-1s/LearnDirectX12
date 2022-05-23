@@ -206,12 +206,12 @@ BaseMeshData BaseGeometry::CreateCube(float width, float height, float depth, ui
 
 BaseMeshData BaseGeometry::CreateQuad(float x, float y, float w, float h, float depth)
 {
-	BaseMeshData meshData;
+    BaseMeshData meshData;
 
 	meshData.VBOs.resize(4);
 	meshData.EBOs.resize(6);
 
-	// pos coordinates specified in NDC space.
+	// Position coordinates specified in NDC space.
 	meshData.VBOs[0] = Vertex_CPU(
         x, y - h, depth,
 		0.0f, 0.0f, -1.0f,

@@ -80,6 +80,7 @@ void TexSizeChange::SubDraw(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* 
 	cmdList->SetComputeRootDescriptorTable(2, m_gpuDownUAV);
 	const UINT downGroupX = static_cast<UINT>(std::ceilf(static_cast<float>(m_sizeData.m_shrinkWidth) / 16.0f));
 	const UINT downGroupY = static_cast<UINT>(std::ceilf(static_cast<float>(m_sizeData.m_shrinkHeight) / 16.0f));
+	cmdList->SetName(L"DownSampler");
 	cmdList->Dispatch(downGroupX, downGroupY, 1);
 	ChangeState<D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_COMMON>(cmdList, downSamplerRes.Get());
 	ChangeState<D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE>(cmdList, downSamplerRes1.Get());
@@ -100,6 +101,7 @@ void TexSizeChange::SubDraw(ID3D12GraphicsCommandList* cmdList, CD3DX12_GPU_DESC
 	cmdList->SetComputeRootDescriptorTable(2, m_gpuUpUAV);
 	const UINT upGroupX = static_cast<UINT>(std::ceilf(static_cast<float>(m_width) / 16.0f));
 	const UINT upGroupY = static_cast<UINT>(std::ceilf(static_cast<float>(m_height) / 16.0f));
+	cmdList->SetName(L"UpSampler");
 	cmdList->Dispatch(upGroupX, upGroupY, 1);
 	ChangeState<D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COMMON>(cmdList, upSamplerRes.Get());
 }

@@ -22,6 +22,7 @@ struct ComputeConstant
     float4x4 g_vp;
     float4x4 g_previousVP;
     float4x4 g_invProj;
+    float4x4 g_viewPortRay;
     float    g_nearZ;
     float    g_farZ;
     float    g_deltaTime;
@@ -33,8 +34,9 @@ struct ComputeConstant
 ConstantBuffer<cbSettings> cbInput : register(b0, space0);
 ConstantBuffer<ComputeConstant> cbPass : register(b1, space0);
 Texture2D input : register(t0, space0);
-Texture2D BloomMap : register(t1, space0);
-Texture2D gBuffer[3] : register(t2, space0);
+Texture2D input1 : register(t1, space0);
+Texture2D motionVector : register(t2, space0);
+Texture2D gBuffer[3] : register(t3, space0);
 RWTexture2D<float4> output : register(u0, space0);
 
 SamplerState            pointWrap        : register(s0);
@@ -56,4 +58,7 @@ float3 DecodeSphereMap(float2 encoded){
     return length.xyz * 2 + float3(0, 0, -1.0f);
 }
 
+float Luminance(float3 col) {
+	return dot(col, float3(0.2126f, 0.7152f, 0.0722f));
+}
 #endif

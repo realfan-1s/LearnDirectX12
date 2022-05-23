@@ -64,6 +64,7 @@ void Effect::SSAO::Draw(ID3D12GraphicsCommandList* cmdList, const std::function<
 	cmdList->SetPipelineState(m_pso.Get());
 	const auto ssaoRes = m_ssaoUploader->GetResource()->GetGPUVirtualAddress();
 	cmdList->SetGraphicsRootConstantBufferView(9, ssaoRes);
+	cmdList->SetName(L"SSAO Draw");
 	DrawCanvas(cmdList);
 
 	m_bilateralBlur->Draw(cmdList, [&](UINT){
@@ -131,12 +132,13 @@ void Effect::SSAO::CreateResources()
 		constexpr float clearColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
 		const CD3DX12_CLEAR_VALUE optClear(m_format, clearColor);
 		ThrowIfFailed(m_device->CreateCommittedResource(&properties, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_GENERIC_READ, &optClear, IID_PPV_ARGS(&m_resource)));
+		m_resource->SetName(L"SSAOOutput");
 	}
 }
 
 void Effect::SSAO::CreateRandomTexture(ID3D12GraphicsCommandList* cmdList) {
 	// 法向半球随机转动更适合
-	constexpr UINT halfCircle = 128U;
+	constexpr UINT halfCircle = 256U;
 	D3D12_RESOURCE_DESC resDesc;
 	ZeroMemory(&resDesc, sizeof(D3D12_RESOURCE_DESC));
 	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
@@ -153,6 +155,7 @@ void Effect::SSAO::CreateRandomTexture(ID3D12GraphicsCommandList* cmdList) {
 	{
 		const auto& properties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
 		ThrowIfFailed(m_device->CreateCommittedResource(&properties, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&randomTex)));
+		randomTex->SetName(L"SSAORandomTex");
 	}
 
 	// 为了将CPU内存数据复制到默认缓冲区域，需要创建一个中间默认上传堆

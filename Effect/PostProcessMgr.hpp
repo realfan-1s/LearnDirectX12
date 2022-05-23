@@ -8,6 +8,10 @@
 
 class PostProcessMgr :public Singleton<PostProcessMgr> {
 public:
+	enum GraphicsOrCompute {
+		Graphics = 0,
+		Compute = 1
+	};
 	explicit PostProcessMgr(typename Singleton<PostProcessMgr>::Token) : Singleton<PostProcessMgr>() {}
 	PostProcessMgr(const PostProcessMgr&) = delete;
 	PostProcessMgr(PostProcessMgr&&) = delete;
@@ -30,6 +34,7 @@ public:
 		m_device = _device;
 		InitRootSignature();
 	}
+	template <GraphicsOrCompute T>
 	void UpdateResources(ID3D12GraphicsCommandList* cmdList, D3D12_GPU_VIRTUAL_ADDRESS passAddress, CD3DX12_GPU_DESCRIPTOR_HANDLE gBufferHandler) const;
 private:
 	void InitRootSignature();
@@ -41,12 +46,21 @@ private:
 	ComPtr<ID3D12Device>		m_device;
 };
 
+template <PostProcessMgr::GraphicsOrCompute T>
 inline void PostProcessMgr::UpdateResources(ID3D12GraphicsCommandList* cmdList, D3D12_GPU_VIRTUAL_ADDRESS passAddress,
 	CD3DX12_GPU_DESCRIPTOR_HANDLE gBufferHandler) const
 {
-	cmdList->SetComputeRootSignature(m_rootSignature.Get());
-	cmdList->SetComputeRootDescriptorTable(5, gBufferHandler);
-	cmdList->SetComputeRootConstantBufferView(4, passAddress);
+	if constexpr (T == Compute)
+	{
+		cmdList->SetComputeRootSignature(m_rootSignature.Get());
+		cmdList->SetComputeRootDescriptorTable(5, gBufferHandler);
+		cmdList->SetComputeRootConstantBufferView(4, passAddress);
+	} else
+	{
+		cmdList->SetGraphicsRootSignature(m_rootSignature.Get());
+		cmdList->SetGraphicsRootDescriptorTable(5, gBufferHandler);
+		cmdList->SetGraphicsRootConstantBufferView(4, passAddress);
+	}
 }
 
 inline void PostProcessMgr::InitRootSignature()
@@ -57,20 +71,23 @@ inline void PostProcessMgr::InitRootSignature()
 	srvTable1.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 1);
 	CD3DX12_DESCRIPTOR_RANGE uavTable;
 	uavTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0);
+	CD3DX12_DESCRIPTOR_RANGE motionVectorTable;
+	motionVectorTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 2);
 	CD3DX12_DESCRIPTOR_RANGE gBufferTable;
-	gBufferTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, 2);
+	gBufferTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, 3);
 	// 创建根参数
-	CD3DX12_ROOT_PARAMETER parameters[6]{};
+	CD3DX12_ROOT_PARAMETER parameters[7]{};
 	parameters[0].InitAsConstants(12, 0);
 	parameters[1].InitAsDescriptorTable(1, &srvTable);
 	parameters[2].InitAsDescriptorTable(1, &uavTable);
 	parameters[3].InitAsDescriptorTable(1, &srvTable1);
 	parameters[4].InitAsConstantBufferView(1);
 	parameters[5].InitAsDescriptorTable(1, &gBufferTable);
+	parameters[6].InitAsDescriptorTable(1, &motionVectorTable);
 
 	auto sampler = GetStaticSampler();
 	//组成根签名
-	CD3DX12_ROOT_SIGNATURE_DESC rootDesc(6U, parameters, sampler.size(), sampler.data(), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+	CD3DX12_ROOT_SIGNATURE_DESC rootDesc(7U, parameters, sampler.size(), sampler.data(), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 	ComPtr<ID3DBlob> serializeRootSig{ nullptr };
 	ComPtr<ID3DBlob> error{ nullptr };
 	auto res = D3D12SerializeRootSignature(&rootDesc, D3D_ROOT_SIGNATURE_VERSION_1, serializeRootSig.GetAddressOf(), error.GetAddressOf());

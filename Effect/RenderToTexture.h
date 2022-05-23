@@ -8,7 +8,6 @@
 #include "GameTimer.h"
 #include "Shader.h"
 #include "Vertex.h"
-#include <unordered_set>
 
 namespace Effect
 {
@@ -20,11 +19,11 @@ public:
 	RenderToTexture& operator=(const RenderToTexture&) = delete;
 	RenderToTexture(RenderToTexture&&) = default;
 	RenderToTexture& operator=(RenderToTexture&&) = default;
-	CD3DX12_CPU_DESCRIPTOR_HANDLE GetCpuSRV() const;
-	CD3DX12_GPU_DESCRIPTOR_HANDLE GetGpuSRV() const;
+	const CD3DX12_CPU_DESCRIPTOR_HANDLE& GetCpuSRV() const;
+	const CD3DX12_GPU_DESCRIPTOR_HANDLE& GetGpuSRV() const;
 	ID3D12Resource* GetResource() const;
-	D3D12_VIEWPORT GetViewPort() const;
-	D3D12_RECT GetScissorRect() const;
+	const D3D12_VIEWPORT& GetViewPort() const;
+	const D3D12_RECT& GetScissorRect() const;
 	ID3D12PipelineState* GetPSO() const;
 
 	virtual void OnResize(UINT newWidth, UINT newHeight);

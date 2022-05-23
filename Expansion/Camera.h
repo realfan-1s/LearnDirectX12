@@ -63,6 +63,7 @@ public:
 	XMMATRIX			GetViewPortRayXM() const;
 	XMFLOAT4X4			GetViewPortRay() const;
 
+	void SetJitter(const XMFLOAT2& prev, const XMFLOAT2& curr);
 	void SetFrustum(float fov, float aspect, float nearZ, float farZ);
 	void SetFrustumReverseZ(float fov, float aspect, float nearZ, float farZ);
 	void SetViewPort(const D3D12_VIEWPORT& viewport);

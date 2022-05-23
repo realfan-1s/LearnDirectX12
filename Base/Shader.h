@@ -31,9 +31,7 @@ enum class BlendType :int {
 	opaque = 0,
 	transparent,
 	skybox,
-	alpha,
-	mirror,
-	reflective,
+	debug,
 	Count
 };
 

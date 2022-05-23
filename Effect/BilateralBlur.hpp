@@ -177,7 +177,9 @@ void BilateralBlur<T, enable_if_t<blurByType<T>::value == 0, int>>::CreateResour
 		constexpr float clearColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
 		const CD3DX12_CLEAR_VALUE optClear(m_format, clearColor);
 		ThrowIfFailed(m_device->CreateCommittedResource(&properties, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_COMMON, &optClear, IID_PPV_ARGS(&m_resource)));
+		m_resource->SetName(L"BilateralBlurVertical");
 		ThrowIfFailed(m_device->CreateCommittedResource(&properties, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_GENERIC_READ, &optClear, IID_PPV_ARGS(&horizontalRes)));
+		horizontalRes->SetName(L"BilateralBlurHorizontal");
 	}
 }
 
@@ -367,6 +369,7 @@ void BilateralBlur<T, enable_if_t<blurByType<T>::value == 1, int>>::Draw(
 
 	// 开始进行真正的模糊
 	ChangeState<D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_UNORDERED_ACCESS>(cmdList, downSamplerRes.Get());
+	cmdList->SetName(L"BilateralDraw");
 	for (UINT i = 0; i < m_blurCount; ++i)
 	{
 		// Horizontal Blur

@@ -3,12 +3,12 @@
 #include <DirectXMath.h>
 #include <memory>
 
-struct LightData
+struct LightData 
 {
 	DirectX::XMFLOAT3	strength;
-	float				fallOfStart;
+	float				fallOffStart;
 	DirectX::XMFLOAT3	direction;
-	float				fallOfEnd;
+	float				fallOffEnd;
 	DirectX::XMFLOAT3	position;
 	float				spotPower;
 };

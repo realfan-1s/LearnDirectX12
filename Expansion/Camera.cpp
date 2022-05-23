@@ -4,6 +4,15 @@ Camera::Camera() : m_transform(std::make_shared<Transform>())
 {
 }
 
+void Camera::SetJitter(const XMFLOAT2& prev, const XMFLOAT2& curr)
+{
+	const auto newProj = std::move(XMMatrixSet(m_proj._11,	m_proj._12, m_proj._13 , m_proj._14,
+		m_proj._21,						m_proj._22,					  m_proj._23, m_proj._24,
+		m_proj._31 - prev.x + curr.x,   m_proj._32 - prev.y + curr.y, m_proj._33, m_proj._34,
+		m_proj._41,						m_proj._42,                   m_proj._43, m_proj._44));
+	XMStoreFloat4x4(&m_proj, newProj);
+}
+
 const XMFLOAT3& Camera::GetCurrPos() const
 {
 	return m_transform->m_position;
@@ -51,7 +60,7 @@ const XMFLOAT4X4& Camera::GetCurrProj() const
 
 XMMATRIX Camera::GetCurrProjXM() const
 {
-	return DirectX::XMLoadFloat4x4(&m_proj);
+	return DirectX::XMLoadFloat4x4(&GetCurrProj());
 }
 
 const D3D12_VIEWPORT& Camera::GetViewPort() const
@@ -170,7 +179,6 @@ XMFLOAT4X4 Camera::GetViewPortRay() const {
 
 void Camera::SetFrustum(float fov, float aspect, float nearZ, float farZ)
 {
-	m_previousVP = std::move(GetCurrVP());
 	m_fov = fov;
 	m_aspect = aspect;
 	m_nearPlane = nearZ;
@@ -183,7 +191,6 @@ void Camera::SetFrustum(float fov, float aspect, float nearZ, float farZ)
 }
 
 void Camera::SetFrustumReverseZ(float fov, float aspect, float nearZ, float farZ) {
-	m_previousVP = std::move(GetCurrVP());
 	m_fov = fov;
 	m_aspect = aspect;
 	m_nearPlane = farZ;
@@ -225,9 +232,9 @@ FirstPersonCamera::~FirstPersonCamera() = default;
 
 void FirstPersonCamera::Update()
 {
+	m_previousVP = std::move(GetCurrVP());
 	if (isMoved)
 	{
-		m_previousVP = std::move(GetCurrVP());
 		XMVECTOR right = std::move(GetCurrRightXM());
 		XMVECTOR up = std::move(GetCurrUpXM());
 		XMVECTOR forward = std::move(GetCurrForwardXM());

@@ -9,11 +9,11 @@ Effect::RenderToTexture::RenderToTexture(ID3D12Device* _device, UINT _width, UIN
 	m_scissorRect = { 0, 0, static_cast<int>(m_width), static_cast<int>(m_height) };
 }
 
-CD3DX12_CPU_DESCRIPTOR_HANDLE Effect::RenderToTexture::GetCpuSRV() const {
+const CD3DX12_CPU_DESCRIPTOR_HANDLE& Effect::RenderToTexture::GetCpuSRV() const {
 	return m_cpuSRV;
 }
 
-CD3DX12_GPU_DESCRIPTOR_HANDLE Effect::RenderToTexture::GetGpuSRV() const {
+const CD3DX12_GPU_DESCRIPTOR_HANDLE& Effect::RenderToTexture::GetGpuSRV() const {
 	return m_gpuSRV;
 }
 
@@ -21,11 +21,11 @@ ID3D12Resource* Effect::RenderToTexture::GetResource() const {
 	return m_resource.Get();
 }
 
-D3D12_VIEWPORT Effect::RenderToTexture::GetViewPort() const {
+const D3D12_VIEWPORT& Effect::RenderToTexture::GetViewPort() const {
 	return m_viewport;
 }
 
-D3D12_RECT Effect::RenderToTexture::GetScissorRect() const {
+const D3D12_RECT& Effect::RenderToTexture::GetScissorRect() const {
 	return m_scissorRect;
 }
 

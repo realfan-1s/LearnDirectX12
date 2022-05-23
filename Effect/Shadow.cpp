@@ -94,6 +94,7 @@ void Effect::Shadow::Draw(ID3D12GraphicsCommandList* cmdList, const std::functio
 	// 要将渲染目标设置为空,从而禁止颜色数据写入
 	cmdList->OMSetRenderTargets(0, nullptr, false, &m_cpuDSV);
 	cmdList->SetPipelineState(m_pso.Get());
+	cmdList->SetName(L"Draw Shadow");
 	drawFunc(0);
 
 	// 结束深度写入状态

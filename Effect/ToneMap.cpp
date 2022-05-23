@@ -65,6 +65,7 @@ void Effect::ToneMap::CreateResources() {
 	{
 		const auto& properties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
 		ThrowIfFailed(m_device->CreateCommittedResource(&properties, D3D12_HEAP_FLAG_NONE, &uavDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&m_resource)));
+		m_resource->SetName(L"ToneMapOutput");
 	}
 }
 

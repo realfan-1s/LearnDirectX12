@@ -64,6 +64,7 @@ void Effect::GaussianBlur::Draw(ID3D12GraphicsCommandList* cmdList, const std::f
 
 	// 开始进行真正地模糊操作
 	ChangeState<D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_UNORDERED_ACCESS>(cmdList, m_resource1.Get());
+	cmdList->SetName(L"GaussianBlur");
 	for (UINT i = 0; i < m_blurCount; ++i)
 	{
 		// Horizontal blur

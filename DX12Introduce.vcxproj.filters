@@ -168,6 +168,15 @@
     <ClInclude Include="Effect\BilateralBlur.hpp">
       <Filter>头文件\Effect\PostProcess</Filter>
     </ClInclude>
+    <ClInclude Include="Effect\TemporalAA.h">
+      <Filter>头文件\Effect\PostProcess</Filter>
+    </ClInclude>
+    <ClInclude Include="Effect\MotionVector.h">
+      <Filter>头文件\Expansion</Filter>
+    </ClInclude>
+    <ClInclude Include="Base\DebugMgr.hpp">
+      <Filter>头文件\Base</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Base\D3DApp.cpp">
@@ -241,6 +250,12 @@
     </ClCompile>
     <ClCompile Include="Effect\SSAO.cpp">
       <Filter>源文件\Effect</Filter>
+    </ClCompile>
+    <ClCompile Include="Effect\TemporalAA.cpp">
+      <Filter>源文件\Effect\PostProcess</Filter>
+    </ClCompile>
+    <ClCompile Include="Effect\MotionVector.cpp">
+      <Filter>源文件\Expansion</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -335,6 +335,7 @@ protected:
 			D3D12_RESOURCE_STATE_COMMON,
 			&optClear,
 			IID_PPV_ARGS(m_depthStencilBuffer.GetAddressOf()));
+		m_depthStencilBuffer->SetName(L"currDepthStencilFrame");
 
 		D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc;
 		dsvDesc.Flags = D3D12_DSV_FLAG_NONE;
@@ -651,8 +652,6 @@ protected:
 	bool		resizeState	{ false }; // 窗口大小变化
 	GameTimer	m_timer; // 计时器
 
-	template <typename T>
-	using ComPtr = ComPtr<T>;
 	ComPtr<ID3D12Device>				m_d3dDevice;
 	ComPtr<IDXGIFactory6>				m_dxgiFactory;// ID3D11DeviceContext在D3D12中合并为IDXGIFactory6
 	ComPtr<IDXGISwapChain>				m_swapChain; // DX双缓冲

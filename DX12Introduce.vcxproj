@@ -185,6 +185,7 @@
     <ClInclude Include="Base\D3DApp.h" />
     <ClInclude Include="Base\D3DAPP_Template.h" />
     <ClInclude Include="Base\D3DUtil.hpp" />
+    <ClInclude Include="Base\DebugMgr.hpp" />
     <ClInclude Include="Base\GameTimer.h" />
     <ClInclude Include="Base\MathHelper.hpp" />
     <ClInclude Include="Base\Mesh.h" />
@@ -199,10 +200,12 @@
     <ClInclude Include="Effect\CubeMap.h" />
     <ClInclude Include="Effect\DynamicCubeMap.h" />
     <ClInclude Include="Effect\GuassianBlur.h" />
+    <ClInclude Include="Effect\MotionVector.h" />
     <ClInclude Include="Effect\PostProcessMgr.hpp" />
     <ClInclude Include="Effect\RenderToTexture.h" />
     <ClInclude Include="Effect\Shadow.h" />
     <ClInclude Include="Effect\SSAO.h" />
+    <ClInclude Include="Effect\TemporalAA.h" />
     <ClInclude Include="Effect\TexSizeChange.h" />
     <ClInclude Include="Effect\ToneMap.h" />
     <ClInclude Include="Expansion\BoxApp.h" />
@@ -235,9 +238,11 @@
     <ClCompile Include="Effect\CubeMap.cpp" />
     <ClCompile Include="Effect\DynamicCubeMap.cpp" />
     <ClCompile Include="Effect\GuassianBlur.cpp" />
+    <ClCompile Include="Effect\MotionVector.cpp" />
     <ClCompile Include="Effect\RenderToTexture.cpp" />
     <ClCompile Include="Effect\Shadow.cpp" />
     <ClCompile Include="Effect\SSAO.cpp" />
+    <ClCompile Include="Effect\TemporalAA.cpp" />
     <ClCompile Include="Effect\TexSizeChange.cpp" />
     <ClCompile Include="Effect\ToneMap.cpp" />
     <ClCompile Include="Expansion\BoxApp.cpp" />

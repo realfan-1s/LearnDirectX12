@@ -96,7 +96,6 @@ public:
 			? curr
 			: sqrtNewtonRaphson(x, static_cast<T>(0.5) * (curr + x / curr), curr);
 	}
-
 	template <typename T, std::enable_if_t<std::is_floating_point_v<T>, int> = 0>
 	static T constexpr sqrt(T x)
 	{
@@ -134,28 +133,6 @@ public:
 			0.0f, 0.0f, 1.0f, 0.0f,
 			0.0f, 0.0f, 0.0f, 1.0f);
 		return I;
-	}
-	static constexpr float LowDiscrepancySequence(UINT index, UINT base)
-	{
-		float res = 0.0f;
-		float fraction = 1.0f / static_cast<float>(base);
-		while (index > 0)
-		{
-			res += static_cast<float>(index % base) * fraction;
-			index /= base;
-			fraction /= static_cast<float>(base);
-		}
-		return res;
-	}
-	template<UINT T>
-	static constexpr std::array<XMFLOAT2, T> HaltonSequence()
-	{
-		auto ans;
-		for (UINT i = 0; i < T; ++i)
-		{
-			ans[i] = XMFLOAT2{ LowDiscrepancySequence(i & 1023, 2), LowDiscrepancySequence(i & 1023, 3) };
-		}
-		return ans;
 	}
 	template <UINT T>
 	static std::array<float, T> CalcGaussian()
@@ -198,5 +175,30 @@ public:
 		return { weights, offsets };
 	}
 };
+
+template <UINT T>
+struct HaltonSequence {
+private:
+	static constexpr float LowDiscrepancySequence(UINT index, UINT base)
+	{
+		float res = 0.0f;
+		float fraction = 1.0f / static_cast<float>(base);
+		while (index > 0)
+		{
+			res += static_cast<float>(index % base) * fraction;
+			index /= base;
+			fraction /= static_cast<float>(base);
+		}
+		return res;
+	}
+public:
+	std::array<XMFLOAT2, T> value;
+	constexpr HaltonSequence() : value()
+	{
+		for (UINT i = 0; i < T; ++i)
+			value[i] = XMFLOAT2{ LowDiscrepancySequence(i & 1023, 2), LowDiscrepancySequence(i & 1023, 3) };
+	}
+};
+
 }
 

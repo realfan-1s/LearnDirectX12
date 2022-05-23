@@ -59,6 +59,7 @@ void Renderer::DeferShading::Draw(ID3D12GraphicsCommandList* cmdList, const std:
 	cmdList->OMSetRenderTargets(2, &m_bloomRTV[0], true, &m_cpuDSV);
 
 	cmdList->SetPipelineState(m_pso.Get());
+	cmdList->SetName(L"Direct Light Draw");
 	DrawCanvas(cmdList);
 }
 
