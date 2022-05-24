@@ -22,12 +22,35 @@ void TemporalAA::InitPSO(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& templateDesc)
 	psoDesc.CS = { static_cast<BYTE*>(m_shader->GetShaderByType(ShaderPos::compute)->GetBufferPointer()), m_shader->GetShaderByType(ShaderPos::compute)->GetBufferSize() };
 	psoDesc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
 	ThrowIfFailed(m_device->CreateComputePipelineState(&psoDesc, IID_PPV_ARGS(&m_pso)));
+
+
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC lutDesc = templateDesc;
+	lutDesc.InputLayout = { m_firstShader->GetInputLayouts(), m_firstShader->GetInputLayoutSize() };
+	lutDesc.VS = {
+		static_cast<BYTE*>(m_firstShader->GetShaderByType(ShaderPos::vertex)->GetBufferPointer()),
+		m_firstShader->GetShaderByType(ShaderPos::vertex)->GetBufferSize()
+	};
+	lutDesc.PS = {
+		static_cast<BYTE*>(m_firstShader->GetShaderByType(ShaderPos::fragment)->GetBufferPointer()),
+		m_firstShader->GetShaderByType(ShaderPos::fragment)->GetBufferSize()
+	};
+	lutDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+	lutDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_GREATER;
+	ThrowIfFailed(m_device->CreateGraphicsPipelineState(&lutDesc, IID_PPV_ARGS(&m_firstPso)));
+
 	m_motionVector->InitPSO(templateDesc);
 }
 
 void TemporalAA::InitShader(const wstring& taaName, const wstring& motionVecName)
 {
 	m_shader = std::make_unique<Shader>(compute_shader, taaName, initializer_list<D3D12_INPUT_ELEMENT_DESC>());
+	m_firstShader = std::make_unique<Shader>(default_shader, L"Shaders\\Forward", initializer_list<D3D12_INPUT_ELEMENT_DESC>
+	({
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{"TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+		{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 36, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0}
+	}));
 	m_motionVector->InitShader(motionVecName);
 }
 
@@ -64,14 +87,15 @@ void TemporalAA::Draw(ID3D12GraphicsCommandList* cmdList, const std::function<vo
 	cmdList->SetComputeRootSignature(PostProcessMgr::instance().GetRootSignature());
 	cmdList->SetPipelineState(m_pso.Get());
 	auto jitters = GetJitter();
+	auto prevJitter = GetPrevJitter();
 	const float parameters[] = { static_cast<float>(m_width), static_cast<float>(m_height),
 								1.0f / static_cast<float>(m_width) , 1.0f / static_cast<float>(m_height),
-								jitters.x, jitters.y, 0.78f, 0.98f, 0.85f };
+								jitters.x, jitters.y, prevJitter.x, prevJitter.y, 1.05f, 0.98f, 0.9f, 0.01f };
 	ChangeState<D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_UNORDERED_ACCESS>(cmdList, m_resource.Get());
-	cmdList->SetComputeRoot32BitConstants(0, 9, &parameters, 0);
+	cmdList->SetComputeRoot32BitConstants(0, 12, &parameters, 0);
 	drawFunc(NULL); 
+	cmdList->SetComputeRootDescriptorTable(1, m_prevGpuSRV);
 	cmdList->SetComputeRootDescriptorTable(2, m_gpuUAV);
-	cmdList->SetComputeRootDescriptorTable(3, m_prevGpuSRV);
 	cmdList->SetComputeRootDescriptorTable(6, GetMotionVector());
 
 	const UINT groupX = static_cast<UINT>(std::ceilf(static_cast<float>(m_width) / 16.0f));
@@ -93,7 +117,29 @@ void TemporalAA::Draw(ID3D12GraphicsCommandList* cmdList, const std::function<vo
 	}
 }
 
-void TemporalAA::FirstDraw(ID3D12GraphicsCommandList* cmdList, const D3D12_CPU_DESCRIPTOR_HANDLE& depthHandler, const std::function<void()>& drawFunc) const
+void TemporalAA::FirstDraw(ID3D12GraphicsCommandList* cmdList, const D3D12_CPU_DESCRIPTOR_HANDLE& depthHandler,
+	ID3D12RootSignature* signature, const std::function<void()>& drawFunc)
+{
+	if (!m_dirtyFlag)
+		return;
+	ChangeState<D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_RENDER_TARGET>(cmdList, m_prevResource.Get());
+	cmdList->ClearRenderTargetView(m_prevCpuRTV, Colors::Black, 0, nullptr);
+	cmdList->ClearDepthStencilView(depthHandler, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 0.0f, 0, 0, nullptr);
+	cmdList->OMSetRenderTargets(1, &m_prevCpuRTV, true, &depthHandler);
+	cmdList->SetPipelineState(m_firstPso.Get());
+	drawFunc();
+	ChangeState<D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_GENERIC_READ>(cmdList, m_prevResource.Get());
+
+	// jitterPointÆ«ÒÆ
+	if (++jitterPivot >= 8)
+	{
+		jitterPivot = 0;
+	}
+	m_dirtyFlag = false;
+}
+
+void TemporalAA::FirstDraw(ID3D12GraphicsCommandList* cmdList, const D3D12_CPU_DESCRIPTOR_HANDLE& depthHandler,
+	const std::function<void()>& drawFunc) const
 {
 	ChangeState<D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_RENDER_TARGET>(cmdList, m_prevResource.Get());
 	cmdList->ClearRenderTargetView(m_prevCpuRTV, Colors::Black, 0, nullptr);
@@ -101,6 +147,7 @@ void TemporalAA::FirstDraw(ID3D12GraphicsCommandList* cmdList, const D3D12_CPU_D
 	cmdList->OMSetRenderTargets(1, &m_prevCpuRTV, true, &depthHandler);
 	drawFunc();
 	ChangeState<D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_GENERIC_READ>(cmdList, m_prevResource.Get());
+
 	// jitterPointÆ«ÒÆ
 	if (++jitterPivot >= 8)
 	{
@@ -130,7 +177,8 @@ void TemporalAA::CreateDescriptors(D3D12_CPU_DESCRIPTOR_HANDLE srvCpuStart, D3D1
 
 XMFLOAT2 TemporalAA::GetJitter() const
 {
-	auto& num = MathHelper::HaltonSequence<8>().value[jitterPivot];
+	constexpr auto arr = MathHelper::HaltonSequence<8>().value;
+	const auto& num = arr[jitterPivot];
 	XMFLOAT2 ans = XMFLOAT2((num.x * 2.0f - 1.0f) / m_width, (num.y * 2.0f - 1.0f) / m_height);
 	return ans;
 }
@@ -143,6 +191,13 @@ D3D12_GPU_DESCRIPTOR_HANDLE TemporalAA::GetMotionVector() const
 const D3D12_CPU_DESCRIPTOR_HANDLE& TemporalAA::GetPrevRTV() const
 {
 	return m_prevCpuRTV;
+}
+
+XMFLOAT2 TemporalAA::GetPrevJitter() const
+{
+	UINT prev = (jitterPivot + 7) % 8;
+	auto jitters = MathHelper::HaltonSequence<8>().value;
+	return jitters[prev];
 }
 
 void TemporalAA::CreateResources()

@@ -125,6 +125,14 @@ void BoxApp::DrawScene(const GameTimer& timer)
 		m_commandList->SetGraphicsRootConstantBufferView(0, address);
 		DrawRenderItems(m_commandList.Get(), m_renderItemLayers[static_cast<UINT>(BlendType::opaque)]);
 	});
+	m_TemporalAA->FirstDraw(m_commandList.Get(), GetDepthStencilView(), m_rootSignature.Get(), [&]()
+	{
+		m_commandList->RSSetViewports(1, &m_camera->GetViewPort());
+		m_commandList->RSSetScissorRects(1, &m_scissorRect);
+		DrawRenderItems(m_commandList.Get(), m_renderItemLayers[static_cast<UINT>(BlendType::opaque)]);
+		m_commandList->SetPipelineState(m_skybox->GetPSO());
+		DrawRenderItems(m_commandList.Get(), m_renderItemLayers[static_cast<UINT>(BlendType::skybox)]);
+	});
 
 	m_commandList->RSSetViewports(1, &m_camera->GetViewPort());
 	m_commandList->RSSetScissorRects(1, &m_scissorRect);
@@ -363,9 +371,8 @@ void BoxApp::DrawLUT()
 		DrawRenderItems(m_commandList.Get(), m_renderItemLayers[static_cast<UINT>(BlendType::skybox)]);
 	});
 
-
-	// TAA prev Draw
-	m_TemporalAA->FirstDraw(m_commandList.Get(), GetDepthStencilView(), [&](){
+	m_TemporalAA->FirstDraw(m_commandList.Get(), GetDepthStencilView(), [&]()
+	{
 		m_commandList->SetPipelineState(LUTParams.Get());
 		DrawRenderItems(m_commandList.Get(), m_renderItemLayers[static_cast<UINT>(BlendType::opaque)]);
 		m_commandList->SetPipelineState(m_skybox->GetPSO());
@@ -387,15 +394,15 @@ void BoxApp::CreateLights()
 {
 	LightData dirLight0;
 	dirLight0.direction = { 0.57735f, -0.57735f, 0.57735f };
-	dirLight0.strength = { 1.8f, 1.8f, 1.8f };
+	dirLight0.strength = { 2.0f, 2.0f, 2.0f };
 	m_lights.emplace_back(std::make_shared<Light>(std::move(dirLight0)));
 	LightData dirLight1;
 	dirLight1.direction = { -0.57735f, -0.57735f, 0.57735f };
-	dirLight1.strength = { 0.4f, 0.4f, 0.4f };
+	dirLight1.strength = { 0.8f, 0.8f, 0.8f };
 	m_lights.emplace_back(std::make_shared<Light>(std::move(dirLight1)));
 	LightData dirLight2;
 	dirLight2.direction = { 0.0f, -0.707f, -0.707f };
-	dirLight2.strength = { 0.2f, 0.2f, 0.2f };
+	dirLight2.strength = { 0.8f, 0.8f, 0.8f };
 	m_lights.emplace_back(std::make_shared<Light>(std::move(dirLight2)));
 	m_shadow->RegisterMainLight(m_lights[0].get());
 }
@@ -808,7 +815,7 @@ void BoxApp::UpdatePostProcess(const GameTimer& timer)
 {
 	PostProcessPass ppp;
 	XMStoreFloat4x4(&ppp.view_gpu, XMMatrixTranspose(m_camera->GetCurrViewXM()));
-	XMStoreFloat4x4(&ppp.proj_gpu, XMMatrixTranspose(m_camera->GetCurrProjXM()));
+	XMStoreFloat4x4(&ppp.proj_gpu, XMMatrixTranspose(m_camera->GetNonjitteredProjXM()));
 	XMStoreFloat4x4(&ppp.vp_gpu, XMMatrixTranspose(m_camera->GetCurrVPXM()));
 	XMStoreFloat4x4(&ppp.nonjitteredVP_gpu, XMMatrixTranspose(m_camera->GetNonjitteredCurrVPXM()));
 	XMStoreFloat4x4(&ppp.previousVP_gpu, XMMatrixTranspose(m_camera->GetNonJitteredPreviousVPXM()));
@@ -849,7 +856,7 @@ void BoxApp::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const vector<Re
 void BoxApp::DrawPostProcess(ID3D12GraphicsCommandList* cmdList) {
 	m_renderer->SetBloomState<0, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_GENERIC_READ>(cmdList);
 	m_TemporalAA->Draw(cmdList, [&](UINT){
-		cmdList->SetComputeRootDescriptorTable(1, m_renderer->GetBloomSRV<0>());
+		cmdList->SetComputeRootDescriptorTable(3, m_renderer->GetBloomSRV<0>());
 	});
 	m_renderer->SetBloomState<0, D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_RENDER_TARGET>(cmdList);
 

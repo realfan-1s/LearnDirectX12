@@ -60,7 +60,7 @@ PixelOut Frag(v2f o)
     float3 ans = ComputeLighting(cbPass.lights, matData, frag.xyz, normalDir, viewDir, shadowPos) + ambient * ao;
 
     PixelOut pixAns;
-    float luma = CalcLuma(ans);
+    float luma = Luminance(ans);
     pixAns.rawCol = float4(ans, 1.0f);
     pixAns.bloomCol = luma > 1.0f ? float4(ans, 1.0f) : float4(0.0f, 0.0f, 0.0f, 1.0f);
     return pixAns;

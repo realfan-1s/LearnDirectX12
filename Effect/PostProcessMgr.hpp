@@ -66,9 +66,9 @@ inline void PostProcessMgr::UpdateResources(ID3D12GraphicsCommandList* cmdList, 
 inline void PostProcessMgr::InitRootSignature()
 {
 	CD3DX12_DESCRIPTOR_RANGE srvTable;
-	srvTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
+	srvTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0); 
 	CD3DX12_DESCRIPTOR_RANGE srvTable1;
-	srvTable1.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 1);
+	srvTable1.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 1); 
 	CD3DX12_DESCRIPTOR_RANGE uavTable;
 	uavTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0);
 	CD3DX12_DESCRIPTOR_RANGE motionVectorTable;
@@ -78,12 +78,12 @@ inline void PostProcessMgr::InitRootSignature()
 	// 创建根参数
 	CD3DX12_ROOT_PARAMETER parameters[7]{};
 	parameters[0].InitAsConstants(12, 0);
-	parameters[1].InitAsDescriptorTable(1, &srvTable);
+	parameters[1].InitAsDescriptorTable(1, &srvTable);// t0->inputBuffer
 	parameters[2].InitAsDescriptorTable(1, &uavTable);
-	parameters[3].InitAsDescriptorTable(1, &srvTable1);
+	parameters[3].InitAsDescriptorTable(1, &srvTable1);// t1->input1Buffer
 	parameters[4].InitAsConstantBufferView(1);
 	parameters[5].InitAsDescriptorTable(1, &gBufferTable);
-	parameters[6].InitAsDescriptorTable(1, &motionVectorTable);
+	parameters[6].InitAsDescriptorTable(1, &motionVectorTable); // t2->motionVector
 
 	auto sampler = GetStaticSampler();
 	//组成根签名

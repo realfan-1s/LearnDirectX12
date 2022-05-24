@@ -55,7 +55,7 @@ void Renderer::GBuffer::InitPSO(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& templa
 void Renderer::GBuffer::RefreshGBuffer(ID3D12GraphicsCommandList* cmdList) {
 	for (int i = 0; i < 3; ++i)
 	{
-		cmdList->ClearRenderTargetView(gBufferRTV[i], Colors::LightSteelBlue, 0, nullptr);
+		cmdList->ClearRenderTargetView(gBufferRTV[i], Colors::Black, 0, nullptr);
 	}
 }
 

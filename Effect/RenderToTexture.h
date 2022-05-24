@@ -49,7 +49,7 @@ protected:
 	DXGI_FORMAT						m_format;
 	UINT							m_width;
 	UINT							m_height;
-	bool							m_dirtyFlag{ true };
+	bool							m_dirtyFlag{ false };
 };
 }
 

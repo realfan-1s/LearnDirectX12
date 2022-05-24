@@ -7,10 +7,10 @@ Camera::Camera() : m_transform(std::make_shared<Transform>())
 void Camera::SetJitter(const XMFLOAT2& curr)
 {
 	const auto newProj = std::move(XMMatrixSet(
-		m_nonjitteredProj._11,			m_nonjitteredProj._12, m_nonjitteredProj._13, m_nonjitteredProj._14,
-		m_nonjitteredProj._21 + curr.x, m_nonjitteredProj._22, m_nonjitteredProj._23, m_nonjitteredProj._24,
-		m_nonjitteredProj._31 + curr.y, m_nonjitteredProj._32, m_nonjitteredProj._33, m_nonjitteredProj._34,
-		m_nonjitteredProj._41,			m_nonjitteredProj._42, m_nonjitteredProj._43, m_nonjitteredProj._44));
+		m_nonjitteredProj._11,			m_nonjitteredProj._12,			m_nonjitteredProj._13, m_nonjitteredProj._14,
+		m_nonjitteredProj._21,			m_nonjitteredProj._22,			m_nonjitteredProj._23, m_nonjitteredProj._24,
+		m_nonjitteredProj._31 + curr.x, m_nonjitteredProj._32 + curr.y, m_nonjitteredProj._33, m_nonjitteredProj._34,
+		m_nonjitteredProj._41,			m_nonjitteredProj._42,			m_nonjitteredProj._43, m_nonjitteredProj._44));
 	XMStoreFloat4x4(&m_proj, newProj);
 }
 

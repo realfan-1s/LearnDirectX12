@@ -195,8 +195,8 @@ public:
 	std::array<XMFLOAT2, T> value;
 	constexpr HaltonSequence() : value()
 	{
-		for (UINT i = 0; i < T; ++i)
-			value[i] = XMFLOAT2{ LowDiscrepancySequence(i & 1023, 2), LowDiscrepancySequence(i & 1023, 3) };
+		for (UINT i = 1; i <= T; ++i)
+			value[i - 1] = XMFLOAT2{ LowDiscrepancySequence(i & 1023, 2), LowDiscrepancySequence(i & 1023, 3) };
 	}
 };
 

@@ -60,7 +60,7 @@ struct PassConstant
 	XMFLOAT2	invRenderTargetSize_gpu;
 	XMFLOAT3	cameraPos_gpu;
 	float		jitterX;
-	XMFLOAT3	ambient{ 0.05f, 0.05f, 0.05f };
+	XMFLOAT3	ambient{ 0.10f, 0.10f, 0.10f };
 	float		jitterY;
 	LightData	lights[maxLights];
 };

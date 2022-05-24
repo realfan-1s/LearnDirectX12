@@ -146,7 +146,6 @@ public:
 	{
 		static_cast<T*>(this)->Resize();
 	}
-
 	void Update(const GameTimer& timer) // 每一帧事件更新
 	{
 		static_cast<T*>(this)->Update(timer);

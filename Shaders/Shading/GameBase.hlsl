@@ -317,7 +317,7 @@ float ShadowFilterByPCF(float4 shadowPos){
 //     return ans;
 // }
 
-float CalcLuma(float3 col) {
+float Luminance(float3 col) {
 	return dot(col, float3(0.2126f, 0.7152f, 0.0722f));
 }
 
