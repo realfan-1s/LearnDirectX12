@@ -175,7 +175,7 @@ float3 PhysicalShading(MaterialData mat, float ndotv, float ndotl, float ndoth, 
     kd *= 1.0f - mat.metalness;
     float3 diffuse = kd * INV_PI * mat.albedo;
 
-    float3 specular = fresnel * GGX(ndoth, r2) * Geometry_UE(ndotv, ndotl, r2);
+    float3 specular = fresnel * GGX(ndoth, r2) * Geometry(ndotv, ndotl, r2);
     float3 result = (diffuse + specular) * ndotl;
     return result;
 }

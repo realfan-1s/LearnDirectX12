@@ -37,9 +37,6 @@ struct PixelOut {
 PixelOut Frag(v2f o)
 {
     float4 albedo = gBuffer[0].Sample(anisotropicClamp, o.uv);
-#ifdef ALPHA
-    clip(albedo.a - 0.1f);
-#endif
     float3 ambient = albedo.xyz * cbPass.ambient;
     float ndcZ = gBuffer[1].Sample(anisotropicClamp, o.uv).x;
     float viewZ = cbPass.g_proj[3][2] / (ndcZ - cbPass.g_proj[2][2]);

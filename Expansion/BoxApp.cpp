@@ -394,14 +394,14 @@ void BoxApp::CreateLights()
 {
 	LightData dirLight0;
 	dirLight0.direction = { 0.57735f, -0.57735f, 0.57735f };
-	dirLight0.strength = { 2.0f, 2.0f, 2.0f };
+	dirLight0.strength = { 1.0f, 1.0f, 1.0f };
 	m_lights.emplace_back(std::make_shared<Light>(std::move(dirLight0)));
 	LightData dirLight1;
 	dirLight1.direction = { -0.57735f, -0.57735f, 0.57735f };
 	dirLight1.strength = { 0.8f, 0.8f, 0.8f };
 	m_lights.emplace_back(std::make_shared<Light>(std::move(dirLight1)));
 	LightData dirLight2;
-	dirLight2.direction = { 0.0f, -0.707f, -0.707f };
+	dirLight2.direction = { 0.0f, 0.707f, 0.707f };
 	dirLight2.strength = { 0.8f, 0.8f, 0.8f };
 	m_lights.emplace_back(std::make_shared<Light>(std::move(dirLight2)));
 	m_shadow->RegisterMainLight(m_lights[0].get());
