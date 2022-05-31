@@ -197,6 +197,7 @@
     <ClInclude Include="Base\Transform.h" />
     <ClInclude Include="Base\UploaderBuffer.hpp" />
     <ClInclude Include="Effect\BilateralBlur.hpp" />
+    <ClInclude Include="Effect\CascadedShadow.h" />
     <ClInclude Include="Effect\CubeMap.h" />
     <ClInclude Include="Effect\DynamicCubeMap.h" />
     <ClInclude Include="Effect\GuassianBlur.h" />
@@ -235,6 +236,7 @@
     <ClCompile Include="Base\Shader.cpp" />
     <ClCompile Include="Base\Transform.cpp" />
     <ClCompile Include="DX12Introduce.cpp" />
+    <ClCompile Include="Effect\CascadedShadow.cpp" />
     <ClCompile Include="Effect\CubeMap.cpp" />
     <ClCompile Include="Effect\DynamicCubeMap.cpp" />
     <ClCompile Include="Effect\GuassianBlur.cpp" />

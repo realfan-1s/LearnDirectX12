@@ -1,6 +1,6 @@
 ﻿// DX12Introduce.cpp : 定义应用程序的入口点。
 //
-#pragma comment(linker, "/subsystem:\"console\" /entry:\"WinMainCRTStartup\"")
+//#pragma comment(linker, "/subsystem:\"console\" /entry:\"WinMainCRTStartup\"")
 #include "framework.h"
 #include <memory>
 #include "BoxApp.h"

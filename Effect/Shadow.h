@@ -11,10 +11,7 @@ namespace Effect
  */
 class Shadow final : public RenderToTexture {
 public:
-	template <typename T>
-	using ComPtr = Microsoft::WRL::ComPtr<T>;
-
-	Shadow(ID3D12Device* _device, UINT _width, DXGI_FORMAT _format);
+	Shadow(ID3D12Device* _device, UINT _width);
 	Shadow(const Shadow&) = delete;
 	Shadow(Shadow&&) = default;
 	Shadow& operator=(Shadow&&) = delete;
@@ -27,16 +24,17 @@ public:
 	void RegisterMainLight(const Light* _mainLight);
 	const XMMATRIX& GetShadowTransformXM() const;
 protected:
-	std::tuple<XMMATRIX, XMMATRIX, XMVECTOR, float, float> RegisterLightVPXM(const Light& light) const;
+	std::tuple<XMMATRIX, XMMATRIX, XMVECTOR, float, float> RegisterLightVPXM() const;
 	void CreateDescriptors() override;
 	void CreateResources() override;
 private:
+	template <typename T>
+	using ComPtr = Microsoft::WRL::ComPtr<T>;
 	using Scene = Models::Scene;
 	CD3DX12_CPU_DESCRIPTOR_HANDLE	m_cpuDSV;
 	const Light*					m_mainLight;
 	XMMATRIX						m_shadowTransform;
 	std::unique_ptr<Shader>			m_shader;
-
 	UINT							m_dsvOffset;
 };
 }

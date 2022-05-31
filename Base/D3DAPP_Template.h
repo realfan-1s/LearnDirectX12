@@ -355,7 +355,7 @@ protected:
 			static_cast<float>(m_clientWidth), static_cast<float>(m_clientHeight),
 			0.0f, 1.0f);
 		m_scissorRect = { 0, 0, m_clientWidth, m_clientHeight };
-		m_camera->SetFrustumReverseZ(XM_PI / 3, GetAspectRatio(), 0.5f, 1000.0f);
+		m_camera->SetFrustumReverseZ(XM_PI / 3, GetAspectRatio(), 0.5f, 500.0f);
 	}
 	bool InitMainWindow() // 初始化win32主窗口
 	{
@@ -513,7 +513,7 @@ protected:
 		DXGI_SWAP_CHAIN_DESC chainDesc;
 		chainDesc.BufferDesc.Width = m_clientWidth;
 		chainDesc.BufferDesc.Height = m_clientHeight;
-		chainDesc.BufferDesc.RefreshRate.Numerator = 120;
+		chainDesc.BufferDesc.RefreshRate.Numerator = 60;
 		chainDesc.BufferDesc.RefreshRate.Denominator = 1;
 		chainDesc.BufferDesc.Format = m_backBufferFormat;
 		chainDesc.BufferDesc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;

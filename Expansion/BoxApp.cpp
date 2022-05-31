@@ -19,6 +19,7 @@
 BoxApp::BoxApp(HINSTANCE instance, bool startMsaa, Camera::CameraType type)
 : D3DApp_Template(instance, startMsaa, type), m_material(std::make_shared<Material>()), m_skybox(std::make_unique<Effect::CubeMap>())
 {
+	m_passOffset = PassConstant::RegisterPassCount(1);
 	m_lights.reserve(maxLights);
 }
 
@@ -113,6 +114,7 @@ void BoxApp::DrawScene(const GameTimer& timer)
 	m_commandList->SetGraphicsRootShaderResourceView(2, matBuffer->GetGPUVirtualAddress());
 	// textureBuffer传递
 	m_commandList->SetGraphicsRootDescriptorTable(6, TextureMgr::instance().GetSRVDescriptorHeap()->GetGPUDescriptorHandleForHeapStart());
+	m_shadow->CopyCascadedShadowPass(m_commandList.Get());
 
 	/*
 	 * 实时离屏渲染绘制
@@ -121,7 +123,7 @@ void BoxApp::DrawScene(const GameTimer& timer)
 	{
 		constexpr UINT passCBSize = D3DUtil::AlignsConstantBuffer(sizeof(PassConstant));
 		auto passCB = m_currFrameResource->m_passCBuffer->GetResource();
-		auto address = passCB->GetGPUVirtualAddress() + 7 * passCBSize;
+		auto address = passCB->GetGPUVirtualAddress() + offset * passCBSize;
 		m_commandList->SetGraphicsRootConstantBufferView(0, address);
 		DrawRenderItems(m_commandList.Get(), m_renderItemLayers[static_cast<UINT>(BlendType::opaque)]);
 	});
@@ -152,7 +154,7 @@ void BoxApp::DrawScene(const GameTimer& timer)
 	m_commandList->SetPipelineState(gBuffer->m_pso.Get());
 	auto passCB = m_currFrameResource->m_passCBuffer->GetResource();
 	auto address = passCB->GetGPUVirtualAddress();
-	m_commandList->SetGraphicsRootConstantBufferView(0, address);
+	m_commandList->SetGraphicsRootConstantBufferView(m_passOffset, address);
 	DrawRenderItems(m_commandList.Get(), m_renderItemLayers[static_cast<UINT>(BlendType::opaque)]);
 
 	for (int i = 0; i < 3; ++i)
@@ -174,7 +176,7 @@ void BoxApp::DrawScene(const GameTimer& timer)
 
 	// 向GPU中传递shadow纹理
 	auto shadowSRVHandler = CD3DX12_GPU_DESCRIPTOR_HANDLE(TextureMgr::instance().GetSRVDescriptorHeap()->GetGPUDescriptorHandleForHeapStart());
-	shadowSRVHandler.Offset(m_shadow->GetSrvIdx("ShadowMap").value_or(0), m_cbvUavDescriptorSize);
+	shadowSRVHandler.Offset(m_shadow->GetCascadedSrvOffset(), m_cbvUavDescriptorSize);
 	m_commandList->SetGraphicsRootDescriptorTable(5, shadowSRVHandler);
 	auto skyboxSRVHandler = CD3DX12_GPU_DESCRIPTOR_HANDLE(TextureMgr::instance().GetSRVDescriptorHeap()->GetGPUDescriptorHandleForHeapStart());
 	skyboxSRVHandler.Offset(m_skybox->GetStaticID(), m_cbvUavDescriptorSize);
@@ -260,11 +262,11 @@ void BoxApp::RegisterRTVAndDSV() {
 void BoxApp::CreateOffScreenRendering() {
 	Models::ObjLoader::instance().Init(m_d3dDevice.Get(), m_commandList.Get());
 	PostProcessMgr::instance().Init(m_d3dDevice.Get());
-	gBuffer = std::make_unique<Renderer::GBuffer>(m_d3dDevice.Get(), m_clientWidth, m_clientHeight, DXGI_FORMAT_R10G10B10A2_UNORM, DXGI_FORMAT_R32_FLOAT, DXGI_FORMAT_R16G16B16A16_SNORM);
-	m_renderer = std::make_unique<Renderer::DeferShading>(m_d3dDevice.Get(), m_clientWidth, m_clientHeight, m_backBufferFormat);
-	m_shadow = std::make_unique<Effect::Shadow>(m_d3dDevice.Get(), 2048U, DXGI_FORMAT_R24G8_TYPELESS);
 	m_dynamicCube = std::make_unique<Effect::DynamicCubeMap>(m_d3dDevice.Get(), 1024U, 1024U, DXGI_FORMAT_R8G8B8A8_UNORM);
 	m_dynamicCube->InitCamera(0.0f, 2.0f, 0.0f);
+	gBuffer = std::make_unique<Renderer::GBuffer>(m_d3dDevice.Get(), m_clientWidth, m_clientHeight, DXGI_FORMAT_R10G10B10A2_UNORM, DXGI_FORMAT_R32_FLOAT, DXGI_FORMAT_R16G16B16A16_SNORM);
+	m_renderer = std::make_unique<Renderer::DeferShading>(m_d3dDevice.Get(), m_clientWidth, m_clientHeight, m_backBufferFormat);
+	m_shadow = std::make_unique<Effect::CascadedShadow>(m_d3dDevice.Get(), 1024U);
 	m_blur = std::make_unique<Effect::GaussianBlur>(m_d3dDevice.Get(), m_clientWidth, m_clientHeight, DXGI_FORMAT_R8G8B8A8_UNORM, 2U);
 	m_toneMap = std::make_unique<Effect::ToneMap>(m_d3dDevice.Get(), m_clientWidth, m_clientHeight, m_backBufferFormat);
 	m_ssao = std::make_unique<Effect::SSAO>(m_d3dDevice.Get(), m_clientWidth, m_clientHeight, DXGI_FORMAT_R8_UNORM);
@@ -286,7 +288,7 @@ void BoxApp::UpdateLUT(const GameTimer& timer)
 		constant.lights[2].strength = m_lights[2]->GetData().strength;
 
 		auto currPass = m_currFrameResource->m_passCBuffer.get();
-		currPass->Copy(1 + i, constant);
+		currPass->Copy(i, constant);
 	});
 }
 
@@ -357,7 +359,7 @@ void BoxApp::DrawLUT()
 
 	// 向GPU中传递shadow纹理
 	auto shadowSRVHandler = CD3DX12_GPU_DESCRIPTOR_HANDLE(TextureMgr::instance().GetSRVDescriptorHeap()->GetGPUDescriptorHandleForHeapStart());
-	shadowSRVHandler.Offset(m_shadow->GetSrvIdx("ShadowMap").value_or(0), m_cbvUavDescriptorSize);
+	shadowSRVHandler.Offset(m_shadow->GetCascadedSrvOffset(), m_cbvUavDescriptorSize);
 	m_commandList->SetGraphicsRootDescriptorTable(5, shadowSRVHandler);
 	// LUT drawing
 	m_dynamicCube->Draw(m_commandList.Get(), [&](UINT offset) {
@@ -404,7 +406,7 @@ void BoxApp::CreateLights()
 	dirLight2.direction = { 0.0f, 0.707f, 0.707f };
 	dirLight2.strength = { 0.8f, 0.8f, 0.8f };
 	m_lights.emplace_back(std::make_shared<Light>(std::move(dirLight2)));
-	m_shadow->RegisterMainLight(m_lights[0].get());
+	m_shadow->SetNecessaryParameters(0.001f, 0.2f, m_camera, m_lights[0].get(), 2);
 }
 
 void BoxApp::CreateDescriptorHeaps()
@@ -438,19 +440,19 @@ void BoxApp::CreateRootSignature()
 	//cbvTable1.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 1);
 	CD3DX12_DESCRIPTOR_RANGE skyboxSRV;
 	skyboxSRV.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0);
-	CD3DX12_DESCRIPTOR_RANGE texSRV;
-	texSRV.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 256, 3, 0);
-	CD3DX12_DESCRIPTOR_RANGE shadowSRV;
-	shadowSRV.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 1, 0);
-	CD3DX12_DESCRIPTOR_RANGE gBufferSRV;
-	gBufferSRV.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, 3, 1);
 	CD3DX12_DESCRIPTOR_RANGE randSRV;
 	randSRV.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 2, 0);
 	CD3DX12_DESCRIPTOR_RANGE ssaoSRV;
-	ssaoSRV.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 2, 1);
-	CD3DX12_ROOT_PARAMETER parameters[11]{};
+	ssaoSRV.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 3, 0);
+	CD3DX12_DESCRIPTOR_RANGE texSRV;
+	texSRV.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 256, 4, 0);
+	CD3DX12_DESCRIPTOR_RANGE gBufferSRV;
+	gBufferSRV.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, 4, 1);
+	CD3DX12_DESCRIPTOR_RANGE shadowSRV;
+	shadowSRV.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 5, 4, 2);
+	CD3DX12_ROOT_PARAMETER parameters[12]{};
 	parameters[0].InitAsConstantBufferView(0); // 渲染过程的CBV
-	parameters[1].InitAsShaderResourceView(1, 1); // 物体的CBV
+	parameters[1].InitAsShaderResourceView(1, 0); // 物体的CBV
 	parameters[2].InitAsShaderResourceView(0, 1); // 物体材质的结构化缓冲区
 	parameters[3].InitAsDescriptorTable(1, &gBufferSRV, D3D12_SHADER_VISIBILITY_PIXEL); // gBuffer的位置
 	parameters[4].InitAsDescriptorTable(1, &ssaoSRV, D3D12_SHADER_VISIBILITY_PIXEL);
@@ -460,11 +462,12 @@ void BoxApp::CreateRootSignature()
 	parameters[8].InitAsDescriptorTable(1, &randSRV, D3D12_SHADER_VISIBILITY_PIXEL); // SSAO随机转动纹理
 	parameters[9].InitAsConstantBufferView(1); // SSAO ConstantBuffer纹理
 	parameters[10].InitAsConstantBufferView(2); // Bilateral Blur 纹理
+	parameters[11].InitAsConstantBufferView(3);
 
 	// 静态采样器设置
 	auto staticSampler = CreateStaticSampler2D();
 	// 根签名的参数组成
-	CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc(11U, parameters, staticSampler.size(), staticSampler.data(), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+	CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc(12U, parameters, staticSampler.size(), staticSampler.data(), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 	// 创建只含有一个常量缓冲区组成的描述符区域的根签名
 	ComPtr<ID3DBlob> serialRootSig{ nullptr }; // ID3DBlob是一个普通的内存块，可以返回一个void*数据或返回缓冲区的大小
 	ComPtr<ID3DBlob> error{ nullptr };
@@ -609,50 +612,12 @@ void BoxApp::CreateFrameResources()
 {
 	for (auto i = 0; i < frameResourcesCount; ++i)
 	{
-		m_frame_cBuffer.emplace_back(std::make_unique<FrameResource>(m_d3dDevice.Get(), 8, RenderItem::GetInstanceCount(), static_cast<UINT>(Material::GetMatSize())));
+		m_frame_cBuffer.emplace_back(std::make_unique<FrameResource>(m_d3dDevice.Get(), PassConstant::GetPassCount(), RenderItem::GetInstanceCount(), static_cast<UINT>(Material::GetMatSize())));
 	}
 }
 
 void BoxApp::CreateRenderItems()
 {
-	//auto box = std::make_unique<RenderItem>();
-	//box->EmplaceBack(std::move(XMFLOAT3(0.0f, 2.0f, 0.0f)), std::move(XMFLOAT3(2.0f, 2.0f, 2.0f)));
-	//box->m_mesh = m_meshGeos["Total"].get();
-	//box->m_matIndex = m_material->m_data["Cube"]->materialCBIndex;
-	//box->m_type = m_material->m_data["Cube"]->type;
-	//box->m_topologyType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	//box->eboCount = box->m_mesh->drawArgs["Cube"].eboCount;
-	//box->eboStart = box->m_mesh->drawArgs["Cube"].eboStart;
-	//box->vboStart = box->m_mesh->drawArgs["Cube"].vboStart;
-	//m_renderItems.emplace_back(std::move(box));
-
-	//auto grid = std::make_unique<RenderItem>();
-	//grid->EmplaceBack(XMFLOAT3(0.0f, 1.0f, 0.0f)), std::move(XMFLOAT3(10.0f, 10.0f, 10.0f));
-	//grid->m_mesh = m_meshGeos["Total"].get();
-	//grid->m_matIndex = m_material->m_data["Grid"]->materialCBIndex;
-	//grid->m_type = m_material->m_data["Grid"]->type;
-	//grid->m_topologyType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	//grid->eboCount = grid->m_mesh->drawArgs["Grid"].eboCount;
-	//grid->eboStart = grid->m_mesh->drawArgs["Grid"].eboStart;
-	//grid->vboStart = grid->m_mesh->drawArgs["Grid"].vboStart;
-	//m_renderItems.emplace_back(std::move(grid));
-
-	//// 渲染球体
-	//auto sphere = make_unique<RenderItem>();
-	//sphere->m_mesh = m_meshGeos["Total"].get();
-	//sphere->m_matIndex = m_material->m_data["Sphere"]->materialCBIndex;
-	//sphere->m_type = m_material->m_data["Sphere"]->type;
-	//sphere->m_topologyType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	//sphere->eboCount = sphere->m_mesh->drawArgs["Sphere"].eboCount;
-	//sphere->eboStart = sphere->m_mesh->drawArgs["Sphere"].eboStart;
-	//sphere->vboStart = sphere->m_mesh->drawArgs["Sphere"].vboStart;
-	//for (size_t i = 0; i < 5; ++i)
-	//{
-	//	sphere->EmplaceBack(std::move(XMFLOAT3(-5.0f, 1.5f, -10.0f + i * 5.0f)));
-	//	sphere->EmplaceBack(std::move(XMFLOAT3(5.0f, 1.5f, -10.0f + i * 5.0f)));
-	//}
-	//m_renderItems.emplace_back(std::move(sphere));
-
 	auto skybox = std::make_unique<RenderItem>();
 	skybox->EmplaceBack();
 	skybox->transformPack[0]->m_scale = std::move(XMFLOAT3(5000.0f, 5000.0f, 5000.0f));
@@ -705,24 +670,18 @@ void BoxApp::CreateTextures()
 {
 	TextureMgr::instance().Init(m_d3dDevice.Get(), m_commandQueue.Get());
 
-	//TextureMgr::instance().InsertDDSTexture("Brick", TexturePath + L"Common/bricks.dds");
-	//TextureMgr::instance().InsertDDSTexture("BrickNorm", TexturePath + L"Common/bricks_nmap.dds");
-	//TextureMgr::instance().InsertDDSTexture("Stone", TexturePath + L"Common/bricks2.dds");
-	//TextureMgr::instance().InsertDDSTexture("StoneNorm", TexturePath + L"Common/bricks2_nmap.dds");
-	//TextureMgr::instance().InsertDDSTexture("Tile", TexturePath + L"Common/checkboard.dds");
-	//TextureMgr::instance().InsertDDSTexture("TileNorm", TexturePath + L"Common/checkboard_nmap.dds");
 	m_skybox->InitStaticTex("Skybox", TexturePath + L"Skybox/grasscube1024.dds");
 	[](){
 		static char sponza[] = "Sponza/pbr/sponza.obj";
 		Models::ObjLoader::instance().CreateObjFromFile<sponza>();
 	}();
+
+	m_dynamicCube->InitTexture("CubeMap");
 	m_renderer->InitTexture();
 	gBuffer->albedoIdx = TextureMgr::instance().RegisterRenderToTexture("gAlbedo");
 	gBuffer->depthIdx = TextureMgr::instance().RegisterRenderToTexture("gPos");
 	gBuffer->normalIdx = TextureMgr::instance().RegisterRenderToTexture("gNormal");
-
-	m_dynamicCube->InitSRV("CubeMap");
-	m_shadow->InitSRV("ShadowMap");
+	m_shadow->InitTexture("ShadowMap");
 	m_blur->InitTexture();
 	m_toneMap->InitTexture();
 	m_ssao->InitTexture();
@@ -774,7 +733,7 @@ void BoxApp::UpdatePassConstant(const GameTimer& timer)
 	XMStoreFloat4x4(&m_currPassCB.proj_gpu, XMMatrixTranspose(m_camera->GetCurrProjXM()));
 	XMStoreFloat4x4(&m_currPassCB.vp_gpu, XMMatrixTranspose(m_camera->GetCurrVPXM()));
 	XMStoreFloat4x4(&m_currPassCB.invProj_gpu, XMMatrixTranspose(m_camera->GetInvProjXM()));
-	XMStoreFloat4x4(&m_currPassCB.shadowTransform_gpu, XMMatrixTranspose(m_shadow->GetShadowTransformXM()));
+	XMStoreFloat4x4(&m_currPassCB.shadowTransform_gpu, XMMatrixTranspose(m_shadow->GetShadowViewXM()));
 	XMStoreFloat4x4(&m_currPassCB.viewPortRay_gpu, XMMatrixTranspose(m_camera->GetViewPortRayXM()));
 	m_currPassCB.nearZ_gpu = m_camera->m_nearPlane;
 	m_currPassCB.farZ_gpu = m_camera->m_farPlane;
@@ -791,7 +750,7 @@ void BoxApp::UpdatePassConstant(const GameTimer& timer)
 	m_currPassCB.lights[2].strength = m_lights[2]->GetData().strength;
 
 	auto passCB = m_currFrameResource->m_passCBuffer.get();
-	passCB->Copy(0, m_currPassCB);
+	passCB->Copy(m_passOffset, m_currPassCB);
 }
 
 void BoxApp::UpdateMaterialConstant(const GameTimer& timer)
@@ -805,7 +764,7 @@ void BoxApp::UpdateOffScreen(const GameTimer& timer)
 {
 	m_shadow->Update(timer, [&](UINT offset, auto& constant) {
 		auto passCB = m_currFrameResource->m_passCBuffer.get();
-		passCB->Copy(7, constant);
+		passCB->Copy(offset, constant);
 	});
 	m_blur->Update(timer, [](UINT, auto&){});
 	m_TemporalAA->Update(timer, [](UINT, auto&){});
@@ -843,12 +802,7 @@ void BoxApp::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const vector<Re
 		cmdList->IASetPrimitiveTopology(item->m_topologyType);
 
 		cmdList->SetGraphicsRootShaderResourceView(1, objectConstantBuffer->GetGPUVirtualAddress() + item->instanceStart * sizeof(ObjectInstance));
-		//// 为了绘制当前的帧资源和物体需要对偏移符堆做偏移
-		//UINT cbvIndex = m_currFrameResourceIndex * static_cast<UINT>(items.size()) + item->m_constantBufferIndex;
-		//auto cbvHandler = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_cbvHeap->GetGPUDescriptorHandleForHeapStart());
-		//cbvHandler.Offset(cbvIndex, m_cbvUavDescriptorSize);
 
-		//cmdList->SetGraphicsRootDescriptorTable(0, cbvHandler);
 		cmdList->DrawIndexedInstanced(item->eboCount, item->GetInstanceSize(), item->eboStart, item->vboStart, 0);
 	}
 }
@@ -883,7 +837,7 @@ void BoxApp::DrawPostProcess(ID3D12GraphicsCommandList* cmdList) {
 #if defined(DEBUG) || defined(_DEBUG)
 	ChangeState<D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_RENDER_TARGET>(cmdList, GetCurrentBackBuffer());
 	Debug::DebugMgr::instance().PrepareToDebug(cmdList, GetCurrentBackBufferView());
-	cmdList->SetGraphicsRootDescriptorTable(0, m_TemporalAA->GetMotionVector());
+	cmdList->SetGraphicsRootDescriptorTable(0, m_shadow->GetGpuSRV());
 	DrawDebugItems(cmdList);
 	ChangeState<D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_DEST>(cmdList, GetCurrentBackBuffer());
 #endif

@@ -2,10 +2,8 @@
 #include "D3DUtil.hpp"
 #include "RtvDsvMgr.h"
 
-Effect::Shadow::Shadow(ID3D12Device* _device, UINT _width, DXGI_FORMAT _format) : RenderToTexture(_device, _width, _width, _format)
+Effect::Shadow::Shadow(ID3D12Device* _device, UINT _width) : RenderToTexture(_device, _width, _width, DXGI_FORMAT_R24G8_TYPELESS)
 {
-	m_viewport = { 0.0f, 0.0f, static_cast<float>(_width), static_cast<float>(_width), 0.0f, 1.0f };
-	m_scissorRect = { 0, 0, static_cast<int>(_width), static_cast<int>(_width) };
 	m_dsvOffset = RtvDsvMgr::instance().RegisterDSV(1);
 	CreateResources();
 }
@@ -34,6 +32,8 @@ void Effect::Shadow::CreateDescriptors()
 
 void Effect::Shadow::CreateResources()
 {
+	SetViewPortAndScissor();
+
 	D3D12_RESOURCE_DESC shadowDesc;
 	ZeroMemory(&shadowDesc, sizeof(D3D12_RESOURCE_DESC));
 	shadowDesc.Alignment = 0;
@@ -61,7 +61,7 @@ void Effect::Shadow::CreateResources()
 }
 
 void Effect::Shadow::Update(const GameTimer& timer, const std::function<void(UINT, PassConstant&)>& updateFunc) {
-	auto [lightViewXM, lightProjXM, lightPos, nearZ, farZ] = RegisterLightVPXM(*m_mainLight);
+	auto [lightViewXM, lightProjXM, lightPos, nearZ, farZ] = RegisterLightVPXM();
 	// NDC空间变换到纹理空间
     XMMATRIX T(
         0.5f, 0.0f, 0.0f, 0.0f,
@@ -81,7 +81,7 @@ void Effect::Shadow::Update(const GameTimer& timer, const std::function<void(UIN
 	shadowPass.renderTargetSize_gpu = std::move(XMFLOAT2(static_cast<float>(m_width), static_cast<float>(m_height)));
 	shadowPass.invRenderTargetSize_gpu = std::move(XMFLOAT2(1.0f / static_cast<float>(m_width), 
 		1.0f /static_cast<float>(m_height)));
-	updateFunc(0, shadowPass);
+	updateFunc(m_dsvOffset, shadowPass);
 }
 
 void Effect::Shadow::Draw(ID3D12GraphicsCommandList* cmdList, const std::function<void(UINT)>& drawFunc) const {
@@ -102,7 +102,8 @@ void Effect::Shadow::Draw(ID3D12GraphicsCommandList* cmdList, const std::functio
 }
 
 void Effect::Shadow::InitShader(const std::wstring& binaryName) {
-	m_shader = make_unique<Shader>(default_shader, binaryName, initializer_list<D3D12_INPUT_ELEMENT_DESC>({ {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+	m_shader = make_unique<Shader>(default_shader, binaryName, initializer_list<D3D12_INPUT_ELEMENT_DESC>({
+		{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
 		{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0} }));
 }
 
@@ -142,9 +143,9 @@ void Effect::Shadow::CreateDescriptors(D3D12_CPU_DESCRIPTOR_HANDLE srvCpuStart, 
 	CreateDescriptors();
 }
 
-std::tuple<XMMATRIX, XMMATRIX, XMVECTOR, float, float> Effect::Shadow::RegisterLightVPXM(const Light& light) const
+std::tuple<XMMATRIX, XMMATRIX, XMVECTOR, float, float> Effect::Shadow::RegisterLightVPXM() const
 {
-	XMVECTOR lightPos = -2.0f * Scene::sceneBounds.Radius * light.GetLightDir();
+	XMVECTOR lightPos = -2.0f * Scene::sceneBounds.Radius * m_mainLight->GetLightDir();
 	XMVECTOR target = XMLoadFloat3(&Scene::sceneBounds.Center);
 	XMVECTOR lightUp = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 	XMMATRIX lightView = XMMatrixLookAtLH(lightPos, target, lightUp);

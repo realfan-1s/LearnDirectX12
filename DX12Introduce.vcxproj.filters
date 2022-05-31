@@ -177,6 +177,9 @@
     <ClInclude Include="Base\DebugMgr.hpp">
       <Filter>头文件\Base</Filter>
     </ClInclude>
+    <ClInclude Include="Effect\CascadedShadow.h">
+      <Filter>头文件\Effect</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Base\D3DApp.cpp">
@@ -256,6 +259,9 @@
     </ClCompile>
     <ClCompile Include="Effect\MotionVector.cpp">
       <Filter>源文件\Expansion</Filter>
+    </ClCompile>
+    <ClCompile Include="Effect\CascadedShadow.cpp">
+      <Filter>源文件\Effect</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

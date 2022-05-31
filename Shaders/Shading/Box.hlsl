@@ -43,7 +43,7 @@ PixelOut Frag(v2f o)
     float4 frag = float4(cbPass.g_cameraPos + o.rayDir.xyz * (viewZ / cbPass.g_nearZ), 1.0f);
     float3 viewDir = normalize(cbPass.g_cameraPos - frag.xyz);
     float4 shadowPos = mul(frag, cbPass.shadowTansform);
-    shadowPos.xyz /= shadowPos.w;
+    //shadowPos.xyz /= shadowPos.w;
     float4 parameter = gBuffer[2].Sample(anisotropicClamp, o.uv);
     float3 normalDir = DecodeSphereMap(parameter.xy);
 

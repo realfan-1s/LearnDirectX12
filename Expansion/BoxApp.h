@@ -1,13 +1,13 @@
 #pragma once
 
 #include <DirectXMath.h>
+#include <memory>
+#include <array>
 #include "D3DAPP_Template.h"
 #include "FrameResource.h"
-#include <memory>
 #include "Shader.h"
 #include "Mesh.h"
 #include "Material.h"
-#include <array>
 #include "EffectHeader.h"
 #include "Renderer/DeferShading.h"
 #include "Renderer/GBuffer.h"
@@ -73,6 +73,7 @@ private:
 	std::vector<RenderItem*>							m_renderItemLayers[static_cast<UINT>(BlendType::Count)];
 	PassConstant										m_currPassCB;
 	int													m_currFrameResourceIndex{ 0 };
+	UINT												m_passOffset;
 
 	unordered_map<string, std::unique_ptr<Mesh>>		m_meshGeos;
 	std::shared_ptr<Material>							m_material{ nullptr };
@@ -81,7 +82,7 @@ private:
 	POINT												m_lastMousePos;
 	std::unique_ptr<Effect::CubeMap>					m_skybox;
 	std::unique_ptr<Effect::DynamicCubeMap>				m_dynamicCube;
-	std::unique_ptr<Effect::Shadow>						m_shadow;
+	std::unique_ptr<Effect::CascadedShadow>				m_shadow;
 
 	std::unique_ptr<Renderer::IRenderer>				m_renderer;
 	std::unique_ptr<Renderer::GBuffer>					gBuffer;

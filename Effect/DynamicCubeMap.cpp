@@ -1,10 +1,12 @@
 #include "DynamicCubeMap.h"
 #include <DirectXColors.h>
 #include "RtvDsvMgr.h"
+#include "Texture.h"
 
 Effect::DynamicCubeMap::DynamicCubeMap(ID3D12Device* _device, UINT _width, UINT _height, DXGI_FORMAT _format)
 : RenderToTexture(_device, _width, _height, _format)
 {
+	m_passOffset = PassConstant::RegisterPassCount(6);
 	m_rtvOffset = RtvDsvMgr::instance().RegisterRTV(6);
 	m_dsvOffset = RtvDsvMgr::instance().RegisterDSV(1);
 	CreateResources();
@@ -38,7 +40,7 @@ void Effect::DynamicCubeMap::Update(const GameTimer& timer, const std::function<
 		passCB.farZ_gpu = m_viewport.MinDepth;
 		passCB.renderTargetSize_gpu = { static_cast<float>(m_width), static_cast<float>(m_height) };
 		passCB.invRenderTargetSize_gpu = { 1.0f / static_cast<float>(m_width), 1.0f / static_cast<float>(m_height) };
-		updateFunc(i, passCB);
+		updateFunc(m_passOffset + i, passCB);
 	}
 }
 
@@ -59,6 +61,11 @@ void Effect::DynamicCubeMap::Draw(ID3D12GraphicsCommandList* cmdList, const std:
 	}
 
 	ChangeState<D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_GENERIC_READ>(cmdList, m_resource.Get());
+}
+
+void Effect::DynamicCubeMap::InitTexture(std::string_view name)
+{
+	m_srvOffset = TextureMgr::instance().RegisterRenderToTexture(name);
 }
 
 void Effect::DynamicCubeMap::InitShader(const std::wstring& binaryName) {
@@ -159,6 +166,7 @@ void Effect::DynamicCubeMap::CreateDescriptors() {
 }
 
 void Effect::DynamicCubeMap::CreateResources() {
+	SetViewPortAndScissor();
 	D3D12_RESOURCE_DESC resDesc;
 	ZeroMemory(&resDesc, sizeof(D3D12_RESOURCE_DESC));
 	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;

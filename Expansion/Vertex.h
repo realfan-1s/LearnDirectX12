@@ -46,6 +46,7 @@ struct ObjectInstance
 
 struct PassConstant
 {
+public:
 	XMFLOAT4X4	view_gpu{ MathHelper::MathHelper::identity4x4() };
 	XMFLOAT4X4	proj_gpu{ MathHelper::MathHelper::identity4x4() };
 	XMFLOAT4X4	vp_gpu{ MathHelper::MathHelper::identity4x4() };
@@ -60,9 +61,20 @@ struct PassConstant
 	XMFLOAT2	invRenderTargetSize_gpu;
 	XMFLOAT3	cameraPos_gpu;
 	float		jitterX;
-	XMFLOAT3	ambient{ 0.10f, 0.10f, 0.10f };
+	XMFLOAT3	ambient{ 0.05f, 0.05f, 0.05f };
 	float		jitterY;
 	LightData	lights[maxLights];
+	static UINT RegisterPassCount(UINT count)
+	{
+		passCount += count;
+		return passCount - count;
+	}
+	static UINT GetPassCount()
+	{
+		return passCount;
+	}
+private:
+	inline static UINT passCount{ 0 };
 };
 
 struct PostProcessPass {

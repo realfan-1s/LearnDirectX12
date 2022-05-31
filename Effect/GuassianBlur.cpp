@@ -112,6 +112,10 @@ void Effect::GaussianBlur::Update(const GameTimer& timer, const std::function<vo
 }
 
 void Effect::GaussianBlur::InitTexture(const string& horizontal, const string& vertical, const string& down, const string& up) {
+	auto InitSRV = [](string_view name)
+	{
+		TextureMgr::instance().RegisterRenderToTexture(name);
+	};
 	InitSRV(horizontal);
 	srvOffset = TextureMgr::instance().GetRegisterType(horizontal).value();
 	InitSRV(horizontal + "UAV");

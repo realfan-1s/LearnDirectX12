@@ -16,6 +16,8 @@ public:
 	void CreateDescriptors(D3D12_CPU_DESCRIPTOR_HANDLE srvCpuStart, D3D12_GPU_DESCRIPTOR_HANDLE srvGpuStart, D3D12_CPU_DESCRIPTOR_HANDLE dsvCpuStart, D3D12_CPU_DESCRIPTOR_HANDLE rtvCpuStart, UINT srvSize, UINT rtvSize, UINT dsvSize);
 	void Update(const GameTimer& timer, const std::function<void(UINT, PassConstant&)>& updateFunc) override;
 	void Draw(ID3D12GraphicsCommandList* cmdList, const std::function<void(UINT)>& drawFunc) const override;
+
+	void InitTexture(std::string_view name);
 	void InitShader(const std::wstring& binaryName);
 	void InitPSO(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& templateDesc) override;
 	void InitCamera(float x, float y, float z);
@@ -28,9 +30,11 @@ private:
 	ComPtr<ID3D12Resource>			m_depthStencilRes;
 	CD3DX12_CPU_DESCRIPTOR_HANDLE	m_cpuRtv[6];
 	CD3DX12_CPU_DESCRIPTOR_HANDLE	m_cpuDSV;
+	UINT							m_srvOffset;
 	UINT							m_rtvOffset;
 	UINT							m_dsvOffset;
 	FirstPersonCamera				m_cams[6];
+	UINT							m_passOffset;
 	std::unique_ptr<Shader>			m_shader;
 };
 }

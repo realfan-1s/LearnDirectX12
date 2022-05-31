@@ -111,6 +111,10 @@ void Effect::TexSizeChange::Update(const GameTimer& timer, const std::function<v
 }
 
 void Effect::TexSizeChange::InitTexture(const string& down, const string& up) {
+	auto InitSRV = [](string_view name)
+	{
+		TextureMgr::instance().RegisterRenderToTexture(name);
+	};
 	InitSRV(down);
 	InitSRV(down + "1");
 	InitSRV(up);

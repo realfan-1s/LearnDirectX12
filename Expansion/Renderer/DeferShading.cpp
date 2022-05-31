@@ -2,7 +2,6 @@
 #include "DeferShading.h"
 #include "Texture.h"
 #include "Mesh.h"
-#include "BaseGeometry.h"
 #include "d3dcompiler.h"
 #include "RtvDsvMgr.h"
 

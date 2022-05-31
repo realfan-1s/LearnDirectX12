@@ -30,9 +30,9 @@ public:
 	virtual void Update(const GameTimer& timer, const std::function<void(UINT, PassConstant&)>& updateFunc) = 0;
 	virtual void Draw(ID3D12GraphicsCommandList* cmdList, const std::function<void(UINT)>& drawFunc) const = 0;
 	virtual void InitPSO(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& templateDesc) = 0;
-	void InitSRV(std::string_view name);
 	std::optional<UINT> GetSrvIdx(std::string_view name);
 protected:
+	void SetViewPortAndScissor();
 	template <typename T>
 	using ComPtr = Microsoft::WRL::ComPtr<T>;
 	virtual void CreateDescriptors() = 0;

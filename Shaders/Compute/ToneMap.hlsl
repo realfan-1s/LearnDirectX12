@@ -10,9 +10,10 @@ float3 ACESToneMapping(float3 col);
 
 [numthreads(16, 16, 1)]
 void ACES(uint3 dispatchID : SV_DISPATCHTHREADID) {
-	float4 col = input[dispatchID.xy] + input1[dispatchID.xy];
-	float3 ans = ACESToneMapping(col.xyz);
-	ans = pow(abs(ans), INV_GAMMA_FACTOR);
+	// float4 col = input[dispatchID.xy] + input1[dispatchID.xy];
+	// float3 ans = ACESToneMapping(col.xyz);
+	// ans = pow(abs(ans), INV_GAMMA_FACTOR);
+    float3 ans = input[dispatchID.xy].xyz;
 	output[dispatchID.xy] = float4(ans, 1.0f);
 }
 
