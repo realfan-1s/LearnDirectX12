@@ -145,20 +145,20 @@ void Effect::Shadow::CreateDescriptors(D3D12_CPU_DESCRIPTOR_HANDLE srvCpuStart, 
 
 std::tuple<XMMATRIX, XMMATRIX, XMVECTOR, float, float> Effect::Shadow::RegisterLightVPXM() const
 {
-	XMVECTOR lightPos = -2.0f * Scene::sceneBounds.Radius * m_mainLight->GetLightDir();
-	XMVECTOR target = XMLoadFloat3(&Scene::sceneBounds.Center);
+	XMVECTOR lightPos = -2.0f * XMLoadFloat3(&Scene::sceneBox.Extents) * m_mainLight->GetLightDir();
+	XMVECTOR target = XMLoadFloat3(&Scene::sceneBox.Center);
 	XMVECTOR lightUp = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 	XMMATRIX lightView = XMMatrixLookAtLH(lightPos, target, lightUp);
 
 	// 将包围球变换到光源空间,计算出orthographic projection
 	XMFLOAT3 sceneCenter;
 	XMStoreFloat3(&sceneCenter, XMVector3TransformCoord(target, lightView)); // 矩阵向量相乘，变换到view空间
-	float left = sceneCenter.x - Scene::sceneBounds.Radius;
-	float right = sceneCenter.x + Scene::sceneBounds.Radius;
-	float bottom = sceneCenter.y - Scene::sceneBounds.Radius;
-	float top = sceneCenter.y + Scene::sceneBounds.Radius;
-	float forward = sceneCenter.z - Scene::sceneBounds.Radius;
-	float back = sceneCenter.z + Scene::sceneBounds.Radius;
+	float left = sceneCenter.x - Scene::sceneBox.Extents.x;
+	float right = sceneCenter.x + Scene::sceneBox.Extents.x;
+	float bottom = sceneCenter.y - Scene::sceneBox.Extents.y;
+	float top = sceneCenter.y + Scene::sceneBox.Extents.y;
+	float forward = sceneCenter.z - Scene::sceneBox.Extents.y;
+	float back = sceneCenter.z + Scene::sceneBox.Extents.y;
 	XMMATRIX lightProj = XMMatrixOrthographicOffCenterLH(left, right, bottom, top, back, forward);
 	return {lightView, lightProj, lightPos, back, forward};
 }

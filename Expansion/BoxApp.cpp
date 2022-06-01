@@ -12,6 +12,7 @@
 #include "Texture.h"
 #include "ObjLoader.h"
 #include "PostProcessMgr.hpp"
+#include "Scene.h"
 #if defined(DEBUG) || defined(_DEBUG)
 #include "DebugMgr.hpp"
 #endif
@@ -350,11 +351,11 @@ void BoxApp::DrawLUT()
 
 	// LUT Shadow
 	m_shadow->Draw(m_commandList.Get(), [&](UINT offset) {
-			constexpr UINT passCBSize = D3DUtil::AlignsConstantBuffer(sizeof(PassConstant));
-			auto passCB = m_currFrameResource->m_passCBuffer->GetResource();
-			auto address = passCB->GetGPUVirtualAddress() + 7 * passCBSize;
-			m_commandList->SetGraphicsRootConstantBufferView(0, address);
-			DrawRenderItems(m_commandList.Get(), m_renderItemLayers[static_cast<UINT>(BlendType::opaque)]);
+		constexpr UINT passCBSize = D3DUtil::AlignsConstantBuffer(sizeof(PassConstant));
+		auto passCB = m_currFrameResource->m_passCBuffer->GetResource();
+		auto address = passCB->GetGPUVirtualAddress() + offset * passCBSize;
+		m_commandList->SetGraphicsRootConstantBufferView(0, address);
+		DrawRenderItems(m_commandList.Get(), m_renderItemLayers[static_cast<UINT>(BlendType::opaque)]);
 	});
 
 	// 向GPU中传递shadow纹理
@@ -658,6 +659,7 @@ void BoxApp::CreateRenderItems()
 		sponza->vboStart = m_meshGeos["Total"]->drawArgs[geoName].vboStart;
 		m_renderItems.emplace_back(std::move(sponza));
 	}
+	Models::Scene::sceneBox.Transform(Models::Scene::sceneBox, XMMatrixScalingFromVector(XMVectorSet(0.07f, 0.07f, 0.07f, 1.0f)));
 
 	// 渲染不透明物体
 	for (auto& item : m_renderItems)

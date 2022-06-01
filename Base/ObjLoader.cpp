@@ -4,6 +4,8 @@
 #include <assimp/Importer.hpp>
 #include <filesystem>
 
+#include "Scene.h"
+
 using namespace Models;
 using namespace Assimp;
 
@@ -96,6 +98,15 @@ void ObjLoader::ProcessNode(aiNode* node, const aiScene* scene, std::string_view
 		ProcessMesh(mesh, scene, fileName, i);
 		vboOffset += mesh->mNumVertices;
 		eboOffset += mesh->mNumFaces * 3;
+		BoundingBox box;
+		box.CreateFromPoints(box, mesh->mNumVertices, reinterpret_cast<const XMFLOAT3*>(mesh->mVertices), sizeof(XMFLOAT3));
+		if (i == 0)
+		{
+			Scene::sceneBox = std::move(box);
+		} else
+		{
+			Scene::sceneBox.CreateMerged(Scene::sceneBox, Scene::sceneBox, box);
+		}
 	}
 }
 

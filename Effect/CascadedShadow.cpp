@@ -8,7 +8,7 @@ using namespace Effect;
 using namespace Models;
 
 CascadedShadow::CascadedShadow(ID3D12Device* _device, UINT _width)
-: RenderToTexture(_device, _width, _width, DXGI_FORMAT_R24G8_TYPELESS), cascadedUploader(std::make_unique<UploaderBuffer<CascadedShadowPass>>(_device, 1, true))
+: RenderToTexture(_device, _width, _width, DXGI_FORMAT_R32_TYPELESS), cascadedUploader(std::make_unique<UploaderBuffer<CascadedShadowPass>>(_device, 1, true))
 {
 	m_dsvOffset = RtvDsvMgr::instance().RegisterDSV(cascadeLevels);
 	m_passOffset = PassConstant::RegisterPassCount(cascadeLevels);
@@ -67,10 +67,11 @@ void CascadedShadow::InitPSO(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& templateD
 {
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC shadowDesc = templateDesc;
 	// 避免自遮挡的阴影偏移依赖于实际场景
-	shadowDesc.RasterizerState.DepthBias = -10000;
+	shadowDesc.RasterizerState.DepthBias = -100000;
 	shadowDesc.RasterizerState.DepthBiasClamp = 0.0f;
 	shadowDesc.RasterizerState.SlopeScaledDepthBias = -1.0f;
 	shadowDesc.DepthStencilState.DepthEnable = true;
+	shadowDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
 	shadowDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_GREATER;
 	shadowDesc.InputLayout = { m_shader->GetInputLayouts(), m_shader->GetInputLayoutSize() };
 	shadowDesc.VS = { static_cast<BYTE*>(m_shader->GetShaderByType(ShaderPos::vertex)->GetBufferPointer()),
@@ -118,22 +119,20 @@ void CascadedShadow::Update(const GameTimer& timer, const std::function<void(UIN
 		XMVECTOR lightAABBMin = XMLoadFloat3(&shadowAABB.Center) - XMLoadFloat3(&shadowAABB.Extents);
 		XMVECTOR lightAABBMax = XMLoadFloat3(&shadowAABB.Center) + XMLoadFloat3(&shadowAABB.Extents);
 
-		/*
-		 * 避免级联时远近平面距离太小导致过短，产生AABB无法完成包围视锥体的问题
-		 * near			    far
-		 * 0____1		4________5
-		 * |	|		|		 |	
-		 * |	|		|        |
-		 * |____|		|________|			
-		 * 3	2       7		 6
-		*/
-		XMVECTOR diagVec = XMLoadFloat3(&camFrustumPoints[7]) - XMLoadFloat3(&camFrustumPoints[1]);
-		XMVECTOR diag2Vec = XMLoadFloat3(&camFrustumPoints[7]) - XMLoadFloat3(&camFrustumPoints[5]);
-		XMVECTOR length = XMVectorMax(XMVector3Length(diag2Vec), XMVector3Length(diagVec));
-		XMVECTOR AABBOffset = (length - (lightAABBMax - lightAABBMin)) * g_XMOneHalf.v;
-		static constexpr XMVECTORF32 onlyXY = { {1.0f, 1.0f, 0.0f, 0.0f} };
-		lightAABBMax += AABBOffset * onlyXY.v;
-		lightAABBMin -= AABBOffset * onlyXY.v;
+		// 消除由于光线改变或相机视角变化产生的闪烁
+		//     Near    Far
+		//    0----1  4----5
+		//    |    |  |    |
+		//    |    |  |    |
+		//    3----2  7----6
+		XMVECTOR diagVec = XMLoadFloat3(&camFrustumPoints[7]) - XMLoadFloat3(&camFrustumPoints[5]);
+		XMVECTOR diag2Vec = XMLoadFloat3(&camFrustumPoints[7]) - XMLoadFloat3(&camFrustumPoints[1]);
+		XMVECTOR lengthVec = XMVectorMax(XMVector3Length(diagVec), XMVector3Length(diag2Vec));
+		//计算出填充正交投影的偏移量
+		XMVECTOR offset = (lengthVec - (lightAABBMax - lightAABBMin)) * g_XMOneHalf;
+		static const XMVECTOR onlyXY = { 1.0f, 1.0f, 0.0f, 0.0f };
+		lightAABBMax += offset * onlyXY;
+		lightAABBMin -= offset * onlyXY;
 
 		/*
 		 * 需要消除由于光线变换或者视角变化导致阴影的闪烁。
@@ -153,7 +152,7 @@ void CascadedShadow::Update(const GameTimer& timer, const std::function<void(UIN
 		XMVECTOR sceneAABBPointLight[8]{};
 		{
 			XMFLOAT3 corners[8]{};
-			camFrustum.GetCorners(corners);
+			Scene::sceneBox.GetCorners(corners);
 			for (UINT i = 0; i < 8; ++i)
 			{
 				XMVECTOR v = XMLoadFloat3(&corners[i]);
@@ -288,10 +287,9 @@ void CascadedShadow::SyncWithShadowPass()
 
 std::tuple<XMMATRIX, XMVECTOR> CascadedShadow::RegisterLightViewXM() const
 {
-	XMVECTOR lightPos = -2.0f * Scene::sceneBounds.Radius * m_mainLight->GetLightDir();
-	XMVECTOR target = XMLoadFloat3(&Scene::sceneBounds.Center);
+	XMVECTOR lightPos = -2.0f * Scene::sceneBound.Radius * m_mainLight->GetLightDir();
 	XMVECTOR lightUp = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-	XMMATRIX lightView = XMMatrixLookAtLH(lightPos, target, lightUp);
+	XMMATRIX lightView = XMMatrixLookToLH(lightPos, m_mainLight->GetLightDir(), lightUp);
 
 	return { lightView, lightPos};
 }
@@ -316,7 +314,7 @@ void CascadedShadow::CreateResources()
 
 	// 填充纹理
 	D3D12_CLEAR_VALUE shadowClear;
-	shadowClear.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	shadowClear.Format = DXGI_FORMAT_D32_FLOAT;
 	shadowClear.DepthStencil.Depth = 0.0f;
 	shadowClear.DepthStencil.Stencil = 0;
 
@@ -333,7 +331,7 @@ void CascadedShadow::CreateDescriptors()
 	// 创建SRV让shader能够采样shadowMap
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+	srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 	srvDesc.Texture2D.MostDetailedMip = 0;
 	srvDesc.Texture2D.MipLevels = 1;
@@ -348,7 +346,7 @@ void CascadedShadow::CreateDescriptors()
 	// 创建DSV让shader能够渲染到shadow Map上
 	D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc{};
 	dsvDesc.Flags = D3D12_DSV_FLAG_NONE;
-	dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	dsvDesc.Format = DXGI_FORMAT_D32_FLOAT;
 	dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
 	dsvDesc.Texture2D.MipSlice = 0;
 	m_device->CreateDepthStencilView(m_resource.Get(), &dsvDesc, m_cpuDSV[0]);

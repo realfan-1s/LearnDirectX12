@@ -22,16 +22,14 @@ float3 DebugCascadedShadowColor(uint curr, uint next, float weight) {
 /*
 * 计算PCF滤波
 */
-float CalcPCF(float4 shadowPos, float invWidth, float invHeight, float upBias, float rightBias, CascadedShadowFrustum frustum, Texture2D shadow, SamplerComparisonState depthSample) {
+float CalcPCF(float4 shadowPos, float invWidth, float invHeight, CascadedShadowFrustum frustum, Texture2D shadow, SamplerComparisonState depthSample) {
 	shadowPos.xyz /= shadowPos.w;
-	float ans = 0.0f;
 	float depthZ = shadowPos.z;
+	float ans = 0.0f;
 	for (int x = frustum.g_pcfStart; x <= frustum.g_pcfEnd; ++x){
 		for (int y = frustum.g_pcfStart; y <= frustum.g_pcfEnd; ++y){
 			float2 offset = shadowPos.xy + float2(x, y) * float2(invWidth, invHeight);
-			depthZ -= frustum.g_shadowOffset;
-			depthZ += rightBias * x + upBias * y;
-			ans += shadow.SampleCmpLevelZero(depthSample, offset, depthZ).x;
+			ans += shadow.SampleCmpLevelZero(depthSample, offset, depthZ);
 		}
 	}
 	return ans / ((frustum.g_pcfEnd - frustum.g_pcfStart + 1) * (frustum.g_pcfEnd - frustum.g_pcfStart + 1));
@@ -74,28 +72,6 @@ void CalcBlendAmountForMap(float4 shadowTexcoord, CascadedShadowFrustum frustum,
 }
 
 /*
-* 当PCF核过大时，texel的邻居指向的是一个不同的位置，因此需要计算一个近平面和远平面可以减少偏移的影响
-* 使用X和Y的偏导数计算从阴影空间变换到屏幕空间的变换矩阵，新的矩阵允许我们从shadow map的texel映射到屏幕空间
-*/
-void CalcRightAndUpTexelBias(float3 ddx, float3 ddy, float width, float height, out float upBias, out float rightBias) {
-	// ddx、ddy分别表示在光照空间下x、y方向的梯度，也就是屏幕空间中x、y的位移
-	float2x2 screenToLight = float2x2(ddx.xy, ddy.xy);
-	float invDet = 1.0f / determinant(screenToLight);
-	float2x2 lightToScreen = float2x2(
-		screenToLight._22 * invDet, 	screenToLight._12 * (-invDet),
-		screenToLight._21 * (-invDet), 	screenToLight._11 * (invDet));
-
-	float2 upLocation = float2(0.0f, height);
-	float2 rightLocation = float2(width, 0.0f);
-	float2 upDepthRatio = mul(upLocation, lightToScreen);
-	float2 rightDepthRatio = mul(rightLocation, lightToScreen);
-
-	// 计算出向上和向右的偏移
-	upBias = upDepthRatio.x * ddx.z + upDepthRatio.y * ddy.z;
-	rightBias = rightDepthRatio.x * ddx.z + rightDepthRatio.y * ddy.z;
-}
-
-/*
 * 基于映射的级联选择：从级联0开始，计算当前级联的投影纹理坐标，然后对级联纹理的边界进行测试，倘若不在边界范围中就尝试下一层CSM，直到找到投影纹理位于边界范围的级联为止
 */
 float CalcCascadedShadowByMapped(float4 shadowPos, Texture2D shadowTex[5], CascadedShadowFrustum frustum, SamplerComparisonState sampleState, out uint currIdx, out uint nextIdx, out float weight) {
@@ -120,18 +96,9 @@ float CalcCascadedShadowByMapped(float4 shadowPos, Texture2D shadowTex[5], Casca
 	nextIdx = min(4, currIdx + 1);
 	float4 shadowNextTexcoord = shadowPos * frustum.g_cascadedScale[nextIdx] + frustum.g_cascadedOffset[nextIdx];
 
-	/*
-	* 计算当前级联的PCF，这些偏导用于计算投影纹理空间相邻位置引起的深度变化
-	*/
-	float3 shadowDDX = ddx(shadowPos).xyz, shadowDDY = ddy(shadowPos).xyz;
-	shadowDDX *= frustum.g_cascadedScale[currIdx].xyz;
-	shadowDDY *= frustum.g_cascadedScale[currIdx].xyz;
-	float upBias = 0.0f, rightBias = 0.0f;
-	CalcRightAndUpTexelBias(shadowDDX, shadowDDY, width, height, upBias, rightBias);
-
 	// 计算pcf核心
-	float currPercent = CalcPCF(shadowTexcoord, invWidth, invHeight, upBias, rightBias, frustum, shadowTex[currIdx], sampleState);
-	float nextPercent = CalcPCF(shadowNextTexcoord, invWidth, invHeight, upBias, rightBias, frustum, shadowTex[nextIdx], sampleState);
+	float currPercent = CalcPCF(shadowTexcoord, invWidth, invHeight, frustum, shadowTex[currIdx], sampleState);
+	float nextPercent = CalcPCF(shadowNextTexcoord, invWidth, invHeight, frustum, shadowTex[nextIdx], sampleState);
 	CalcBlendAmountForMap(shadowTexcoord, frustum, weight);
 	return lerp(nextPercent, currPercent, weight);
 }
@@ -157,18 +124,9 @@ float CalcCascadedShadowByInterval(float4 shadowPos, float depthZ, Texture2D sha
 	float4 shadowTexcoord = shadowPos * frustum.g_cascadedScale[currIdx] + frustum.g_cascadedOffset[currIdx];
 	float4 shadowNextTexcoord = shadowPos * frustum.g_cascadedScale[nextIdx] + frustum.g_cascadedOffset[nextIdx];
 
-	/*
-	* 计算当前级联的PCF，这些偏导用于计算投影纹理空间相邻位置引起的深度变化
-	*/
-	float3 shadowDDX = ddx(shadowPos).xyz, shadowDDY = ddy(shadowPos).xyz;
-	shadowDDX *= frustum.g_cascadedScale[currIdx].xyz;
-	shadowDDY *= frustum.g_cascadedScale[currIdx].xyz;
-	float upBias = 0.0f, rightBias = 0.0f;
-	CalcRightAndUpTexelBias(shadowDDX, shadowDDY, width, height, upBias, rightBias);
-
 	CalcBlendAmountForInterval(depthZ, shadowTexcoord.xy, frustum, currIdx, weight);
-	float currPCF = CalcPCF(shadowTexcoord, invWidth, invHeight, upBias, rightBias, frustum, shadowTex[currIdx], sampleState);
-	float nextPCF = CalcPCF(shadowNextTexcoord, invWidth, invHeight, upBias, rightBias, frustum, shadowTex[nextIdx], sampleState);
+	float currPCF = CalcPCF(shadowTexcoord, invWidth, invHeight, frustum, shadowTex[currIdx], sampleState);
+	float nextPCF = CalcPCF(shadowNextTexcoord, invWidth, invHeight, frustum, shadowTex[nextIdx], sampleState);
 	return lerp(nextPCF, currPCF, weight);
 }
 

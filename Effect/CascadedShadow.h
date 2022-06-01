@@ -68,7 +68,7 @@ private:
 	std::unique_ptr<Shader>								m_shader;
 	std::shared_ptr<Camera>								m_camera;
 public:
-	static constexpr float								cascadedPercent[5] = { 0.05f, 0.15f, 0.3f, 0.45f, 0.6f };
+	static constexpr float								cascadedPercent[5] = { 0.05f, 0.10f, 0.22f, 0.3f, 0.4f };
 	static constexpr UINT								cascadeLevels = 5U;
 };
 }
