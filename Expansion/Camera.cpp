@@ -1,4 +1,7 @@
 #include "Camera.h"
+#include <DirectXCollision.h>
+
+using namespace DirectX;
 
 Camera::Camera() : m_transform(std::make_shared<Transform>())
 {
@@ -198,6 +201,20 @@ XMFLOAT4X4 Camera::GetViewPortRay() const {
 	XMFLOAT4X4 ans;
 	XMStoreFloat4x4(&ans, GetViewPortRayXM());
 	return ans;
+}
+
+void Camera::GetFrustumPlanes(XMFLOAT4* planes) const
+{
+	const BoundingFrustum projFrustum(GetCurrProjXM());
+	XMVECTOR frustumPlanesXM[6];
+	projFrustum.GetPlanes(&frustumPlanesXM[0], &frustumPlanesXM[1], &frustumPlanesXM[2],
+		&frustumPlanesXM[3], &frustumPlanesXM[4], &frustumPlanesXM[5]);
+	XMFLOAT4 frustumPlanes[6];
+	for (int i = 0; i < 6; ++i)
+	{
+		XMStoreFloat4(&frustumPlanes[i], frustumPlanesXM[i]);
+	}
+	memcpy(planes, &frustumPlanes, sizeof(XMFLOAT4) * 6);
 }
 
 void Camera::SetFrustum(float fov, float aspect, float nearZ, float farZ)

@@ -1,7 +1,7 @@
 #ifndef GAUSSIAN_BLUR
 #define GAUSSIAN_BLUR
 
-#include "Struct.hlsl"
+#include "ComputeBase.hlsl"
 
 #define NUM_THREADS (256)
 #define MAX_BLUR_SIZE (3)

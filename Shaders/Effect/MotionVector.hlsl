@@ -2,7 +2,7 @@
 #define MOTION_VECTOR
 
 #include "../Shading/Canvas.hlsl"
-#include "../Compute/Struct.hlsl"
+#include "../Compute/ComputeBase.hlsl"
 
 struct v2f {
 	float4 pos : SV_POSITION;

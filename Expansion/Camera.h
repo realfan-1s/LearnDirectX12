@@ -66,6 +66,7 @@ public:
 	XMFLOAT4X4			GetInvVP() const;
 	XMMATRIX			GetViewPortRayXM() const;
 	XMFLOAT4X4			GetViewPortRay() const;
+	void				GetFrustumPlanes(XMFLOAT4* planes) const;
 
 	void SetJitter(const XMFLOAT2& curr);
 	void SetFrustum(float fov, float aspect, float nearZ, float farZ);

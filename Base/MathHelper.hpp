@@ -174,6 +174,23 @@ public:
 
 		return { weights, offsets };
 	}
+	static XMFLOAT3 HueToRGB(float Hue)
+	{
+		float intPart;
+		float fracPart = std::modf(Hue * 6.0f, &intPart);
+		int region = static_cast<int>(intPart);
+
+		switch (region)
+		{
+		case 0:  return XMFLOAT3(1.0f, fracPart, 0.0f);
+		case 1:  return XMFLOAT3(1.0f - fracPart, 1.0f, 0.0f);
+		case 2:  return XMFLOAT3(0.0f, 1.0f, fracPart);
+		case 3:  return XMFLOAT3(0.0f, 1.0f - fracPart, 1.0f);
+		case 4:  return XMFLOAT3(fracPart, 0.0f, 1.0f);
+		case 5:  return XMFLOAT3(1.0f, 0.0f, 1.0f - fracPart);
+		default: return DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f);
+		}
+	}
 };
 
 template <UINT T>

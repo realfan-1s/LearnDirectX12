@@ -180,6 +180,12 @@
     <ClInclude Include="Effect\CascadedShadow.h">
       <Filter>头文件\Effect</Filter>
     </ClInclude>
+    <ClInclude Include="Expansion\Renderer\TileBasedDefer.h">
+      <Filter>头文件\Expansion\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Expansion\Renderer\ForwardPlus.h">
+      <Filter>头文件\Expansion\Renderer</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Base\D3DApp.cpp">
@@ -213,9 +219,6 @@
       <Filter>源文件\Expansion</Filter>
     </ClCompile>
     <ClCompile Include="Expansion\Material.cpp">
-      <Filter>源文件\Expansion</Filter>
-    </ClCompile>
-    <ClCompile Include="Expansion\Light.cpp">
       <Filter>源文件\Expansion</Filter>
     </ClCompile>
     <ClCompile Include="Expansion\Texture.cpp">
@@ -262,6 +265,12 @@
     </ClCompile>
     <ClCompile Include="Effect\CascadedShadow.cpp">
       <Filter>源文件\Effect</Filter>
+    </ClCompile>
+    <ClCompile Include="Expansion\Renderer\TileBasedDefer.cpp">
+      <Filter>源文件\Expansion\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Expansion\Renderer\ForwardPlus.cpp">
+      <Filter>源文件\Expansion\Renderer</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -1,6 +1,7 @@
 #ifndef __GAME_BASE__
 #define __GAME_BASE__
 
+#include "../BRDF/BRDF.hlsl"
 #include "../Effect/CascadedShadow.hlsl"
 
 SamplerState            pointWrap        : register(s0);
@@ -27,13 +28,6 @@ ConstantBuffer<SSAOPass> ssaoNoise : register(b1);
 ConstantBuffer<BlurPass> blurNoise : register(b2);
 ConstantBuffer<CascadedShadowFrustum> csmPass : register(b3);
 
-float GGX(float ndoth, float r2);
-float Geometry(float ndotv, float ndotl, float r2);
-float Geometry_Joint(float ndotv, float ndotl, float r2);
-float Geometry_UE(float ndotv, float ndotl, float roughness);
-float3 Fresnel(float hdotv, float3 F0);
-float LightAttenuation(float dist, float fallOffStart, float fallOffEnd);
-float3 PhysicalShading(MaterialData mat, float ndotv, float ndotl, float ndoth, float hdotv);
 float3 ComputeDirectionalLight(Light dirLight, MaterialData mat, float3 normalDir, float3 viewDir);
 float3 ComputeSpotLight(Light spotLight, MaterialData mat, float3 pos, float3 normalDir, float3 viewDir);
 float3 ComputePointLight(Light pointLight, MaterialData mat, float3 pos, float3 normalDir, float3 viewDir, float r2);
@@ -41,62 +35,6 @@ float3 ComputeLighting(Light lights[MAX_LIGHTS], MaterialData mat, float3 pos, f
 float3 CalcByTBN(float3 normSample, float3 normalW, float3 tangentW);
 float2 EncodeSphereMap(float3 normal);
 float3 DecodeSphereMap(float2 encoded);
-
-float GGX(float ndoth, float r2){
-    float r4 = r2 * r2;
-    float ndoth2 = ndoth * ndoth;
-    float denom = PI * (ndoth2 * (r4 - 1.0f) + 1.0f) *  (ndoth2 * (r4 - 1.0f) + 1.0f);
-    return r4 / denom;
-}
-
-float Geometry(float ndotv, float ndotl, float r2){
-    return 0.5f * rcp(lerp(2 * ndotv * ndotl, ndotv + ndotl, r2));
-}
-
-float Geometry_Joint(float ndotv, float ndotl, float r2){
-    float Vis_V = ndotl * (ndotv * (1 - r2) + r2);
-    float Vis_L = ndotv * (ndotl * (1 - r2) + r2);
-    float nom = 0.5 * rcp(Vis_V + Vis_L);
-    float denom = rcp(4.0f * ndotl * ndotv + 1e-5);
-    return nom * denom;
-}
-
-float Geometry_UE(float ndotv, float ndotl, float roughness){
-    float r = roughness + 1.0f;
-	float k = r / 8.0f;
-	float GL = ndotl / (ndotl * (1.0 - k) + k);
-	float GV = ndotv / (ndotv * (1.0 - k) + k);
-	float nom = GL* GV;
-    float denom = rcp(4.0f * ndotl * ndotv + 1e-5);
-    return nom * denom;
-}
-
-float3 Fresnel(float hdotv, float3 F0){
-    return F0 + (1.0f - F0) * pow(1.0f - hdotv, 5.0f);
-}
-
-float3 FresnelRoughness(float ndotv, float3 f0, float roughness)
-{
-    return f0 + (max(float3(1.0f - roughness, 1.0f - roughness, 1.0f - roughness), f0) - f0) * pow(1.0f - ndotv, 5.0f);
-}
-
-float LightAttenuation(float dist, float fallOffStart, float fallOffEnd){
-    return saturate((fallOffEnd - dist) / (fallOffEnd - fallOffStart));
-}
-
-float3 PhysicalShading(MaterialData mat, float ndotv, float ndotl, float ndoth, float hdotv){
-    float r2 = mat.roughness * mat.roughness;
-    float3 f0 = lerp(float3(0.04f, 0.04f, 0.04f), mat.albedo, mat.metalness);
-    float3 fresnel = Fresnel(hdotv, f0);
-
-    float3 kd = float3(1.0f, 1.0f, 1.0f) - fresnel;
-    kd *= 1.0f - mat.metalness;
-    float3 diffuse = kd * INV_PI * mat.albedo;
-
-    float3 specular = fresnel * GGX(ndoth, r2) * Geometry_UE(ndotv, ndotl, r2);
-    float3 result = (diffuse + specular) * ndotl;
-    return result;
-}
 
 float3 ComputeDirectionalLight(Light dirLight, MaterialData mat, float3 normalDir, float3 viewDir){
     float3 lightDir = normalize(-dirLight.direction);
@@ -141,7 +79,7 @@ float3 ComputePointLight(Light pointLight, MaterialData mat, float3 pos, float3 
     float ndoth = dot(normalDir, halfDir);
     float hdotv = dot(halfDir, viewDir);
 
-    float3 brdf = PhysicalShading(mat, ndotv, ndotl, ndoth, hdotv) * pointLight.strength;
+    float3 brdf = PhysicalShading(mat, ndotv, ndotl, ndoth, hdotv) * pointLight.strength * attenuation;
 }
 
 float3 ComputeLighting(Light lights[MAX_LIGHTS], MaterialData mat, float3 pos, float3 normalDir, float3 viewDir, float4 shadowPos){
@@ -153,7 +91,7 @@ float3 ComputeLighting(Light lights[MAX_LIGHTS], MaterialData mat, float3 pos, f
         float shadowFactor[DIR_LIGHT_NUM] = { 1.0f, 1.0f, 1.0f };
         shadowFactor[0] = CalcCascadedShadowByMapped(shadowPos, g_shadow, csmPass, shadowSampler, currIdx, nextIdx, weight);
         [loop]
-        for (; i < DIR_LIGHT_NUM; ++i){
+        for (; i < 0; ++i){
             res += shadowFactor[i] * ComputeDirectionalLight(lights[i], mat, normalDir, viewDir);
         }
     #endif
@@ -161,12 +99,6 @@ float3 ComputeLighting(Light lights[MAX_LIGHTS], MaterialData mat, float3 pos, f
     #if (SPOT_LIGHT_NUM > 0)
         for (; i < DIR_LIGHT_NUM + SPOT_LIGHT_NUM; ++i){
             res += ComputeSpotLight(lights[i], mat, pos, normalDir, viewDir);
-        }
-    #endif
-
-    #if (POINT_LIGHT_NUM > 0)
-        for (; i < MAX_LIGHTS; ++i){
-            res += ComputePointLight(lights[i], mat, pos, normalDir, viewDir);
         }
     #endif
     return res + mat.emission;
@@ -199,4 +131,5 @@ float3 DecodeSphereMap(float2 encoded){
     length.xy *= sqrt(l);
     return length.xyz * 2 + float3(0, 0, -1.0f);
 }
+
 #endif

@@ -1,7 +1,7 @@
 #ifndef CASCADED_SHADOW_MAP
 #define CASCADED_SHADOW_MAP
 
-#include "../Shading/DataStructure.hlsl"
+#include "../BRDF/BRDF.hlsl"
 
 static const float3 cascadeColorsMultiplier[5] =
 {

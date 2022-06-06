@@ -1,5 +1,8 @@
 #pragma once
 
+#include "Renderer/DeferShading.h"
+#include "Renderer/GBuffer.h"
+#include "Renderer/TileBasedDefer.h"
 #include "Shadow.h"
 #include "CubeMap.h"
 #include "DynamicCubeMap.h"

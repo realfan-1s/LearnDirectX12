@@ -31,7 +31,7 @@ void Renderer::DeferShading::InitTexture()
 	TextureMgr::instance().RegisterRenderToTexture("Bloom1");
 }
 
-void Renderer::DeferShading::InitDSV(D3D12_CPU_DESCRIPTOR_HANDLE _cpuDSV) {
+void Renderer::DeferShading::InitDSV(D3D12_CPU_DESCRIPTOR_HANDLE _cpuDSV, UINT dsvSize) {
 	m_cpuDSV = _cpuDSV;
 }
 
@@ -48,6 +48,8 @@ void Renderer::DeferShading::CreateDescriptors(D3D12_CPU_DESCRIPTOR_HANDLE srvCp
 	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvCpuHandler(rtvCpuStart, static_cast<INT>(m_rtvOffset), rtvSize);
 	m_bloomRTV[0] = rtvCpuHandler;
 	m_bloomRTV[1] = rtvCpuHandler.Offset(1, rtvSize);
+
+	InitDSV(dsvCpuStart, dsvSize);
 
 	CreateDescriptors();
 }
@@ -68,11 +70,11 @@ void Renderer::DeferShading::Update(const GameTimer& timer, const std::function<
 void Renderer::DeferShading::OnResize(UINT newWidth, UINT newHeight) {
 	if (m_width != newWidth || m_height != newHeight)
 	{
-			m_width = newWidth;
-			m_height = newHeight;
-			CreateResources();
-			CreateDescriptors();
-			m_dirtyFlag = true;
+		m_width = newWidth;
+		m_height = newHeight;
+		CreateResources();
+		CreateDescriptors();
+		m_dirtyFlag = true;
 	}
 }
 

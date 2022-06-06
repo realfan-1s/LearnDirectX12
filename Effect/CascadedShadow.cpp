@@ -69,7 +69,7 @@ void CascadedShadow::InitPSO(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& templateD
 	// 避免自遮挡的阴影偏移依赖于实际场景
 	shadowDesc.RasterizerState.DepthBias = -100000;
 	shadowDesc.RasterizerState.DepthBiasClamp = 0.0f;
-	shadowDesc.RasterizerState.SlopeScaledDepthBias = -1.0f;
+	shadowDesc.RasterizerState.SlopeScaledDepthBias = -2.0f;
 	shadowDesc.DepthStencilState.DepthEnable = true;
 	shadowDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
 	shadowDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_GREATER;
@@ -210,7 +210,7 @@ void CascadedShadow::Draw(ID3D12GraphicsCommandList* cmdList, const std::functio
 	}
 }
 
-void CascadedShadow::SetNecessaryParameters(float _offset, float _range, const shared_ptr<Camera>& _viewCam, const Light* _mainLight, int kernelSize)
+void CascadedShadow::SetNecessaryParameters(float _offset, float _range, const shared_ptr<Camera>& _viewCam, const Light<Pixel>* _mainLight, int kernelSize)
 {
 	m_shadowOffset = _offset;
 	m_cascadedBlend = std::clamp(_range, 0.0f, 1.0f);

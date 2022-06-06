@@ -126,7 +126,7 @@ void Effect::Shadow::InitPSO(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& templateD
 	ThrowIfFailed(m_device->CreateGraphicsPipelineState(&shadowDesc, IID_PPV_ARGS(&m_pso)));
 }
 
-void Effect::Shadow::RegisterMainLight(const Light* _mainLight) {
+void Effect::Shadow::RegisterMainLight(const Light<Pixel>* _mainLight) {
 	m_mainLight = _mainLight;
 }
 

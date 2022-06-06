@@ -1,7 +1,7 @@
 #ifndef MIP_MAP
 #define MIP_MAP
 
-#include "Struct.hlsl"
+#include "ComputeBase.hlsl"
 
 [numthreads(16, 16, 1)]
 void Generate(uint3 dispatchID : SV_DISPATCHTHREADID){

@@ -17,7 +17,6 @@ public:
 	IRenderer(IRenderer&&) = default;
 	virtual ~IRenderer() override = default;
 	virtual void InitTexture() = 0;
-	virtual void InitDSV(D3D12_CPU_DESCRIPTOR_HANDLE _cpuDSV) = 0;
 	virtual void CreateDescriptors(D3D12_CPU_DESCRIPTOR_HANDLE srvCpuStart, D3D12_CPU_DESCRIPTOR_HANDLE rtvCpuStart, D3D12_CPU_DESCRIPTOR_HANDLE dsvCpuStart, D3D12_GPU_DESCRIPTOR_HANDLE srvGpuStart, UINT srvSize, UINT rtvSize, UINT dsvSize) = 0;
 	template <typename... Args>
 	void InitShaders(Args&&... args) noexcept
@@ -55,6 +54,8 @@ public:
 		else
 			ChangeState<TBefore, TAfter>(list, m_bloomRes.Get());
 	}
+protected:
+	virtual void InitDSV(D3D12_CPU_DESCRIPTOR_HANDLE _cpuDSV, UINT dsvSize) = 0;
 protected:
 	unordered_map<std::wstring, std::unique_ptr<Shader>>	m_shaderPack;
 	ComPtr<ID3D12Resource>									m_bloomRes;

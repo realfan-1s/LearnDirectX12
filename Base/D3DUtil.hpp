@@ -11,10 +11,10 @@
 using Microsoft::WRL::ComPtr;
 
 inline constexpr int frameResourcesCount = 3;
-inline constexpr int maxLights = 16;
 inline constexpr int dirLightNum = 3;
 inline constexpr int spotLightNum = 0;
-inline constexpr int pointLightNum = 0;
+inline constexpr int maxLights = (dirLightNum + spotLightNum);
+inline constexpr int pointLightNum = 2048;
 
 template <D3D12_RESOURCE_STATES TBefore, D3D12_RESOURCE_STATES TAfter>
 inline void ChangeState(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* res);

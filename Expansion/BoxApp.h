@@ -9,8 +9,6 @@
 #include "Mesh.h"
 #include "Material.h"
 #include "EffectHeader.h"
-#include "Renderer/DeferShading.h"
-#include "Renderer/GBuffer.h"
 
 using namespace DirectX;
 using namespace Template;
@@ -60,6 +58,7 @@ private:
 	void UpdateMaterialConstant(const GameTimer& timer);
 	void UpdateOffScreen(const GameTimer& timer);
 	void UpdatePostProcess(const GameTimer& timer);
+	void UpdateLightPos(const GameTimer& timer);
 
 	void DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const vector<RenderItem*>& items);
 	void DrawPostProcess(ID3D12GraphicsCommandList* cmdList);
@@ -68,7 +67,7 @@ private:
 	// cbuffer常量缓冲区，可以被着色器程序所引用,通常是CPU每帧更新一次。因此需要将常量缓冲区存在上传堆而非默认堆中，且常量缓冲区大小必须是硬件最小分配空间(256B)的整数倍
 	ComPtr<ID3D12RootSignature>							m_rootSignature{ nullptr };
 	FrameResource*										m_currFrameResource{ nullptr };
-	std::vector<std::unique_ptr<FrameResource>>			m_frame_cBuffer;
+	std::vector<std::unique_ptr<FrameResource>>			m_frameCBuffer;
 	std::vector<std::unique_ptr<RenderItem>>			m_renderItems;
 	std::vector<RenderItem*>							m_renderItemLayers[static_cast<UINT>(BlendType::Count)];
 	PassConstant										m_currPassCB;
@@ -77,14 +76,16 @@ private:
 
 	unordered_map<string, std::unique_ptr<Mesh>>		m_meshGeos;
 	std::shared_ptr<Material>							m_material{ nullptr };
-	std::vector<std::shared_ptr<Light>>					m_lights;
+	std::vector<std::shared_ptr<Light<Pixel>>>			m_pixelLights;
+	std::vector<std::shared_ptr<Light<Compute>>>		m_computeLights;
+	std::vector<unique_ptr<LightMoveParams>>			m_pointLightPos;
 
 	POINT												m_lastMousePos;
 	std::unique_ptr<Effect::CubeMap>					m_skybox;
 	std::unique_ptr<Effect::DynamicCubeMap>				m_dynamicCube;
 	std::unique_ptr<Effect::CascadedShadow>				m_shadow;
 
-	std::unique_ptr<Renderer::IRenderer>				m_renderer;
+	std::unique_ptr<Renderer::TileBasedDefer>			m_renderer;
 	std::unique_ptr<Renderer::GBuffer>					gBuffer;
 	std::unique_ptr<Effect::SSAO>						m_ssao;
 

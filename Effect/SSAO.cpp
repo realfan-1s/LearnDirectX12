@@ -169,7 +169,7 @@ void Effect::SSAO::CreateRandomTexture(ID3D12GraphicsCommandList* cmdList) {
 
 	std::vector<XMCOLOR> initData;
 	initData.reserve(halfCircle * halfCircle);
-	// TODO£º²¢ÐÐ»¯
+#pragma omp parallel for
 	for (int x = 0; x < halfCircle; ++x)
 		for (int y = 0; y < halfCircle; ++y)
 		{

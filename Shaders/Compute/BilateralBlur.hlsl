@@ -1,7 +1,7 @@
 #ifndef BILATERAL_BLUR
 #define BILATERAL_BLUR
 
-#include "Struct.hlsl"
+#include "ComputeBase.hlsl"
 
 #define NUM_THREADS (256)
 #define MAX_BLUR_SIZE (3)

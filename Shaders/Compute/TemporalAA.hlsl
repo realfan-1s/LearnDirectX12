@@ -1,7 +1,7 @@
 #ifndef TEMPORAL_ANTI_ALIASING
 #define TEMPORAL_ANTI_ALIASING
 
-#include "Struct.hlsl"
+#include "ComputeBase.hlsl"
 /*
 * 在TAA中cbSettings w0表示jitterX, w1表示jitterY,
 	 w2表示prevJitterX, w3表示prevJitterY, o0表示相邻点颜色混合参数, o1表示stationaryBlur, o2表示moveBlur 

@@ -1,7 +1,7 @@
 #ifndef DOWN_SAMPLER
 #define DOWN_SAMPLER
 
-#include "Struct.hlsl"
+#include "ComputeBase.hlsl"
 
 float CalcLuma(float3 col);
 

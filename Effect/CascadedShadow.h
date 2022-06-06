@@ -27,7 +27,7 @@ public:
 	void InitPSO(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& templateDesc) override;
 	void Update(const GameTimer& timer, const std::function<void(UINT, PassConstant&)>& updateFunc) override;
 	void Draw(ID3D12GraphicsCommandList* cmdList, const std::function<void(UINT)>& drawFunc) const override;
-	void SetNecessaryParameters(float _offset, float _range, const shared_ptr<Camera>& _viewCam, const Light* _mainLight, int kernelSize);
+	void SetNecessaryParameters(float _offset, float _range, const shared_ptr<Camera>& _viewCam, const Light<Pixel>* _mainLight, int kernelSize);
 	void CopyCascadedShadowPass(ID3D12GraphicsCommandList* cmdList) const;
 	XMFLOAT4X4 GetShadowView() const;
 	const XMMATRIX& GetShadowViewXM() const;
@@ -57,7 +57,7 @@ private:
 	CD3DX12_GPU_DESCRIPTOR_HANDLE						m_shadowGpuSRV[4];
 	XMMATRIX											m_shadowView;
 	XMMATRIX											m_shadowProj[5]{};
-	const Light*										m_mainLight;
+	const Light<Pixel>*									m_mainLight;
 	UINT												m_dsvOffset;
 	UINT												m_srvOffset;
 	INT													m_kernelSize;

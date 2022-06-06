@@ -17,11 +17,15 @@
 #include "DebugMgr.hpp"
 #endif
 
+using namespace DirectX;
+
 BoxApp::BoxApp(HINSTANCE instance, bool startMsaa, Camera::CameraType type)
 : D3DApp_Template(instance, startMsaa, type), m_material(std::make_shared<Material>()), m_skybox(std::make_unique<Effect::CubeMap>())
 {
 	m_passOffset = PassConstant::RegisterPassCount(1);
-	m_lights.reserve(maxLights);
+	m_pixelLights.reserve(maxLights);
+	m_computeLights.reserve(pointLightNum);
+	m_pointLightPos.reserve(pointLightNum);
 }
 
 bool BoxApp::Init()
@@ -75,7 +79,7 @@ void BoxApp::Update(const GameTimer& timer)
 
 	// 循环获取当前帧资源的数组
 	m_currFrameResourceIndex = (m_currFrameResourceIndex + 1) % frameResourcesCount;
-	m_currFrameResource = m_frame_cBuffer[m_currFrameResourceIndex].get();
+	m_currFrameResource = m_frameCBuffer[m_currFrameResourceIndex].get();
 
 	// GPU若还未执行完当前帧资源的所有命令,表明CPU执行过快, CPU就要进入等待状态直到GPU完成命令并到达围栏点
 	if (m_currFrameResource->m_fence != 0 && m_fence->GetCompletedValue() < m_currFrameResource->m_fence)
@@ -88,8 +92,9 @@ void BoxApp::Update(const GameTimer& timer)
 
 	{
 		XMMATRIX rotate = XMMatrixRotationY(static_cast<float>(0.1 * timer.DeltaTime()));
-		XMVECTOR lightDir = XMVector3TransformNormal(m_lights[0]->GetLightDir(), rotate);
-		XMStoreFloat3(&const_cast<XMFLOAT3&>(m_lights[0]->GetData().direction), lightDir);
+		XMVECTOR lightDir = XMVector3TransformNormal(m_pixelLights[0]->GetLightDir(), rotate);
+		XMStoreFloat3(&const_cast<XMFLOAT3&>(m_pixelLights[0]->GetData().direction), lightDir);
+		UpdateLightPos(timer);
 	}
 
 	UpdateObjectInstance(timer);
@@ -183,7 +188,10 @@ void BoxApp::DrawScene(const GameTimer& timer)
 	skyboxSRVHandler.Offset(m_skybox->GetStaticID(), m_cbvUavDescriptorSize);
 	m_commandList->SetGraphicsRootDescriptorTable(7, skyboxSRVHandler);
 
-	m_renderer->Draw(m_commandList.Get(), [](UINT){});
+	m_renderer->Draw(m_commandList.Get(), [&](UINT){
+		m_commandList->SetComputeRootConstantBufferView(0, m_currFrameResource->m_postProcessCBuffer->GetResource()->GetGPUVirtualAddress());
+		m_commandList->SetComputeRootDescriptorTable(1, gBufferSRVHandler);
+	});
 	m_commandList->SetPipelineState(m_skybox->GetPSO());
 	DrawRenderItems(m_commandList.Get(), m_renderItemLayers[static_cast<UINT>(BlendType::skybox)]);
 
@@ -266,7 +274,7 @@ void BoxApp::CreateOffScreenRendering() {
 	m_dynamicCube = std::make_unique<Effect::DynamicCubeMap>(m_d3dDevice.Get(), 1024U, 1024U, DXGI_FORMAT_R8G8B8A8_UNORM);
 	m_dynamicCube->InitCamera(0.0f, 2.0f, 0.0f);
 	gBuffer = std::make_unique<Renderer::GBuffer>(m_d3dDevice.Get(), m_clientWidth, m_clientHeight, DXGI_FORMAT_R10G10B10A2_UNORM, DXGI_FORMAT_R32_FLOAT, DXGI_FORMAT_R16G16B16A16_SNORM);
-	m_renderer = std::make_unique<Renderer::DeferShading>(m_d3dDevice.Get(), m_clientWidth, m_clientHeight, m_backBufferFormat);
+	m_renderer = std::make_unique<Renderer::TileBasedDefer>(m_d3dDevice.Get(), m_clientWidth, m_clientHeight, m_backBufferFormat);
 	m_shadow = std::make_unique<Effect::CascadedShadow>(m_d3dDevice.Get(), 1024U);
 	m_blur = std::make_unique<Effect::GaussianBlur>(m_d3dDevice.Get(), m_clientWidth, m_clientHeight, DXGI_FORMAT_R8G8B8A8_UNORM, 2U);
 	m_toneMap = std::make_unique<Effect::ToneMap>(m_d3dDevice.Get(), m_clientWidth, m_clientHeight, m_backBufferFormat);
@@ -281,12 +289,12 @@ void BoxApp::UpdateLUT(const GameTimer& timer)
 {
 	Update(timer);
 	m_dynamicCube->Update(timer, [&](UINT i, auto& constant) {
-		constant.lights[0].direction = m_lights[0]->GetData().direction;
-		constant.lights[0].strength = m_lights[0]->GetData().strength;
-		constant.lights[1].direction = m_lights[1]->GetData().direction;
-		constant.lights[1].strength = m_lights[1]->GetData().strength;
-		constant.lights[2].direction = m_lights[2]->GetData().direction;
-		constant.lights[2].strength = m_lights[2]->GetData().strength;
+		constant.lights[0].direction = m_pixelLights[0]->GetData().direction;
+		constant.lights[0].strength = m_pixelLights[0]->GetData().strength;
+		constant.lights[1].direction = m_pixelLights[1]->GetData().direction;
+		constant.lights[1].strength = m_pixelLights[1]->GetData().strength;
+		constant.lights[2].direction = m_pixelLights[2]->GetData().direction;
+		constant.lights[2].strength = m_pixelLights[2]->GetData().strength;
 
 		auto currPass = m_currFrameResource->m_passCBuffer.get();
 		currPass->Copy(i, constant);
@@ -395,19 +403,48 @@ void BoxApp::DrawLUT()
 
 void BoxApp::CreateLights()
 {
-	LightData dirLight0;
+	LightInPixel dirLight0;
 	dirLight0.direction = { 0.57735f, -0.57735f, 0.57735f };
 	dirLight0.strength = { 1.0f, 1.0f, 1.0f };
-	m_lights.emplace_back(std::make_shared<Light>(std::move(dirLight0)));
-	LightData dirLight1;
+	m_pixelLights.emplace_back(std::make_shared<Light<Pixel>>(std::move(dirLight0)));
+	LightInPixel dirLight1;
 	dirLight1.direction = { -0.57735f, -0.57735f, 0.57735f };
 	dirLight1.strength = { 0.8f, 0.8f, 0.8f };
-	m_lights.emplace_back(std::make_shared<Light>(std::move(dirLight1)));
-	LightData dirLight2;
+	m_pixelLights.emplace_back(std::make_shared<Light<Pixel>>(std::move(dirLight1)));
+	LightInPixel dirLight2;
 	dirLight2.direction = { 0.0f, 0.707f, 0.707f };
 	dirLight2.strength = { 0.8f, 0.8f, 0.8f };
-	m_lights.emplace_back(std::make_shared<Light>(std::move(dirLight2)));
-	m_shadow->SetNecessaryParameters(0.001f, 0.2f, m_camera, m_lights[0].get(), 2);
+	m_pixelLights.emplace_back(std::make_shared<Light<Pixel>>(std::move(dirLight2)));
+	m_shadow->SetNecessaryParameters(0.001f, 0.2f, m_camera, m_pixelLights[0].get(), 2);
+
+	std::mt19937 randSeed(1337);
+	constexpr float maxRadius = 100.0f;
+	constexpr float attenuation = 0.8f;
+	std::uniform_real<float> radiusNormDist(0.0f, 1.0f);
+	std::uniform_real<float> angleDist(0.0f, 2.0f * XM_PI);
+	std::uniform_real<float> heightDist(0.0f, 75.0f);
+	std::uniform_real<float> moveSpeedDist(2.0f, 20.0f);
+	std::uniform_int<int>	 moveDirection(0, 1);
+	std::uniform_real<float> hueDist(0.0f, 1.0f);
+	std::uniform_real<float> intensityDist(0.2f, 0.8f);
+	std::uniform_real<float> attenuationDist(2.0f, 20.0f);
+	for (UINT i = 0; i < pointLightNum; ++i)
+	{
+		LightMoveParams data;
+		data.radius = std::sqrt(radiusNormDist(randSeed)) * maxRadius;
+		data.angle = angleDist(randSeed);
+		data.height = heightDist(randSeed);
+		data.moveSpeed = (moveDirection(randSeed) * 2 - 1) * moveSpeedDist(randSeed) / data.radius;
+		m_pointLightPos.emplace_back(std::make_unique<LightMoveParams>(data));
+
+		LightInCompute params;
+		params.position = { data.radius * std::cos(data.angle), data.height, data.radius * std::sin(data.angle) };
+		params.fallOffEnd = attenuationDist(randSeed);
+		params.fallOffStart = attenuation * params.fallOffEnd;
+		params.strength = MathHelper::MathHelper::HueToRGB(hueDist(randSeed));
+		XMStoreFloat3(&params.strength, XMLoadFloat3(&params.strength) * intensityDist(randSeed));
+		m_computeLights.emplace_back(std::make_shared<Light<Compute>>(std::move(params)));
+	}
 }
 
 void BoxApp::CreateDescriptorHeaps()
@@ -423,8 +460,7 @@ void BoxApp::CreateDescriptorHeaps()
 	m_shadow->CreateDescriptors(cpuSrvStart, gpuSrvStart, cpuDsvStart, m_cbvUavDescriptorSize, m_dsvDescriptorSize);
 	m_blur->CreateDescriptors(cpuSrvStart, gpuSrvStart, m_cbvUavDescriptorSize);
 	m_toneMap->CreateDescriptors(cpuSrvStart, gpuSrvStart, m_cbvUavDescriptorSize);
-	m_renderer->InitDSV(GetDepthStencilView());
-	m_renderer->CreateDescriptors(cpuSrvStart, cpuRtvStart, cpuDsvStart, gpuSrvStart, m_cbvUavDescriptorSize, m_rtvDescriptorSize, m_dsvDescriptorSize);
+	m_renderer->CreateDescriptors(cpuSrvStart, cpuRtvStart, GetDepthStencilView(), gpuSrvStart, m_cbvUavDescriptorSize, m_rtvDescriptorSize, m_dsvDescriptorSize);
 	m_ssao->CreateRandomTexture(m_commandList.Get());
 	m_ssao->CreateDescriptors(cpuSrvStart, gpuSrvStart, cpuRtvStart, m_cbvUavDescriptorSize, m_rtvDescriptorSize);
 	m_TemporalAA->CreateDescriptors(cpuSrvStart, gpuSrvStart, cpuRtvStart, m_cbvUavDescriptorSize, m_rtvDescriptorSize);
@@ -479,6 +515,8 @@ void BoxApp::CreateRootSignature()
 	ThrowIfFailed(res);
 	m_d3dDevice->CreateRootSignature(0, serialRootSig->GetBufferPointer(), 
 		serialRootSig->GetBufferSize(), IID_PPV_ARGS(&m_rootSignature));
+
+	m_renderer->InitRootSignature();
 }
 
 void BoxApp::CreateShadersAndInput() {
@@ -495,7 +533,8 @@ void BoxApp::CreateShadersAndInput() {
 	m_blur->InitShader(L"Shaders\\Blur_Horizontal", L"Shaders\\Blur_Vertical");
 	m_toneMap->InitShader(L"Shaders\\ToneMap_ACES");
 	m_renderer->InitShaders(std::forward_as_tuple(L"Shaders\\Box", default_shader, initializer_list<D3D12_INPUT_ELEMENT_DESC>({ {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-		{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0} })));
+		{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0} })), 
+		std::forward_as_tuple(L"Shaders\\TileBased_Defer", compute_shader, initializer_list<D3D12_INPUT_ELEMENT_DESC>()));
 	m_ssao->InitShader();
 	m_TemporalAA->InitShader(L"Shaders\\TemporalAA_Aliasing", L"Shaders\\MotionVector");
 }
@@ -613,7 +652,7 @@ void BoxApp::CreateFrameResources()
 {
 	for (auto i = 0; i < frameResourcesCount; ++i)
 	{
-		m_frame_cBuffer.emplace_back(std::make_unique<FrameResource>(m_d3dDevice.Get(), PassConstant::GetPassCount(), RenderItem::GetInstanceCount(), static_cast<UINT>(Material::GetMatSize())));
+		m_frameCBuffer.emplace_back(std::make_unique<FrameResource>(m_d3dDevice.Get(), PassConstant::GetPassCount(), RenderItem::GetInstanceCount(), static_cast<UINT>(Material::GetMatSize())));
 	}
 }
 
@@ -744,12 +783,12 @@ void BoxApp::UpdatePassConstant(const GameTimer& timer)
 	m_currPassCB.renderTargetSize_gpu = {static_cast<float>(m_clientWidth), static_cast<float>(m_clientHeight)};
 	m_currPassCB.invRenderTargetSize_gpu = { 1.0f / static_cast<float>(m_clientWidth), 1.0f / static_cast<float>(m_clientHeight)};
 	m_currPassCB.cameraPos_gpu = m_camera->GetCurrPos();
-	m_currPassCB.lights[0].direction = m_lights[0]->GetData().direction;
-	m_currPassCB.lights[0].strength = m_lights[0]->GetData().strength;
-	m_currPassCB.lights[1].direction = m_lights[1]->GetData().direction;
-	m_currPassCB.lights[1].strength = m_lights[1]->GetData().strength;
-	m_currPassCB.lights[2].direction = m_lights[2]->GetData().direction;
-	m_currPassCB.lights[2].strength = m_lights[2]->GetData().strength;
+	m_currPassCB.lights[0].direction = m_pixelLights[0]->GetData().direction;
+	m_currPassCB.lights[0].strength = m_pixelLights[0]->GetData().strength;
+	m_currPassCB.lights[1].direction = m_pixelLights[1]->GetData().direction;
+	m_currPassCB.lights[1].strength = m_pixelLights[1]->GetData().strength;
+	m_currPassCB.lights[2].direction = m_pixelLights[2]->GetData().direction;
+	m_currPassCB.lights[2].strength = m_pixelLights[2]->GetData().strength;
 
 	auto passCB = m_currFrameResource->m_passCBuffer.get();
 	passCB->Copy(m_passOffset, m_currPassCB);
@@ -780,7 +819,7 @@ void BoxApp::UpdatePostProcess(const GameTimer& timer)
 	XMStoreFloat4x4(&ppp.vp_gpu, XMMatrixTranspose(m_camera->GetCurrVPXM()));
 	XMStoreFloat4x4(&ppp.nonjitteredVP_gpu, XMMatrixTranspose(m_camera->GetNonjitteredCurrVPXM()));
 	XMStoreFloat4x4(&ppp.previousVP_gpu, XMMatrixTranspose(m_camera->GetNonJitteredPreviousVPXM()));
-	XMStoreFloat4x4(&ppp.invProj_gpu, XMMatrixTranspose(m_camera->GetInvProjXM()));
+	XMStoreFloat4x4(&ppp.invView_gpu, XMMatrixTranspose(m_camera->GetInvViewXM()));
 	XMStoreFloat4x4(&ppp.viewPortRay_gpu, XMMatrixTranspose(m_camera->GetViewPortRayXM()));
 	ppp.nearZ_gpu = m_camera->m_nearPlane;
 	ppp.farZ_gpu = m_camera->m_farPlane;
@@ -790,6 +829,19 @@ void BoxApp::UpdatePostProcess(const GameTimer& timer)
 
 	auto postProcessPass = m_currFrameResource->m_postProcessCBuffer.get();
 	postProcessPass->Copy(0, ppp);
+}
+
+void BoxApp::UpdateLightPos(const GameTimer& timer)
+{
+	const auto totalTime = timer.TotalTime();
+	for (UINT i = 0; i < pointLightNum; ++i)
+	{
+		const auto& data = m_pointLightPos[i];
+		const float angle = data->angle + totalTime * data->moveSpeed;
+		const auto& params = m_computeLights[i];
+		XMFLOAT3 pos = XMFLOAT3(data->radius * std::cos(angle), data->height, data->radius * std::sin(angle));
+		params->MovePos(pos);
+	}
 }
 
 void BoxApp::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const vector<RenderItem*>& items)
