@@ -168,6 +168,7 @@ void ConstructFrustumPlanes(uint2 groupID, float tileMinZ, float tileMaxZ, uint2
 }
 
 float3 ComputePointLight(PointLight light, MaterialData mat, float3 posV, float3 normalDir, float3 viewDir) {
+	//TODO: normalDir是否有问题
 	float3 lightDir = light.posV - posV;
 	float dist = length(lightDir);
 	lightDir = normalize(lightDir);

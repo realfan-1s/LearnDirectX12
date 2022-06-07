@@ -418,11 +418,11 @@ void BoxApp::CreateLights()
 	m_shadow->SetNecessaryParameters(0.001f, 0.2f, m_camera, m_pixelLights[0].get(), 2);
 
 	std::mt19937 randSeed(1337);
-	constexpr float maxRadius = 100.0f;
+	constexpr float maxRadius = 150.0f;
 	constexpr float attenuation = 0.8f;
 	std::uniform_real<float> radiusNormDist(0.0f, 1.0f);
 	std::uniform_real<float> angleDist(0.0f, 2.0f * XM_PI);
-	std::uniform_real<float> heightDist(0.0f, 75.0f);
+	std::uniform_real<float> heightDist(0.0f, 120.0f);
 	std::uniform_real<float> moveSpeedDist(2.0f, 20.0f);
 	std::uniform_int<int>	 moveDirection(0, 1);
 	std::uniform_real<float> hueDist(0.0f, 1.0f);
@@ -839,7 +839,7 @@ void BoxApp::UpdateLightPos(const GameTimer& timer)
 	for (UINT i = 0; i < pointLightNum; ++i)
 	{
 		const auto& data = m_pointLightPos[i];
-		const float angle = data->angle;
+		const float angle = data->angle * totalTime * data->moveSpeed;
 		const auto& params = m_computeLights[i];
 		XMFLOAT3 pos = XMFLOAT3(data->radius * std::cos(angle), data->height, data->radius * std::sin(angle));
 		XMVECTOR viewPos = XMVector3TransformCoord(XMLoadFloat3(&pos), m_camera->GetCurrViewXM());

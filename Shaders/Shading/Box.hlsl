@@ -54,7 +54,7 @@ PixelOut Frag(v2f o)
     matData.emission = float3(0, 0, 0);
 
     float ao = ssao.Sample(anisotropicClamp, o.uv).x;
-    float3 ans = ComputeLighting(cbPass.lights, matData, frag.xyz, normalDir, viewDir, shadowPos) + ambient * ao * 0.0f;
+    float3 ans = ComputeLighting(cbPass.lights, matData, frag.xyz, normalDir, viewDir, shadowPos) + ambient * ao;
 
     PixelOut pixAns;
     float luma = Luminance(ans);
