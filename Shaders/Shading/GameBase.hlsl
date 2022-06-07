@@ -30,7 +30,6 @@ ConstantBuffer<CascadedShadowFrustum> csmPass : register(b3);
 
 float3 ComputeDirectionalLight(Light dirLight, MaterialData mat, float3 normalDir, float3 viewDir);
 float3 ComputeSpotLight(Light spotLight, MaterialData mat, float3 pos, float3 normalDir, float3 viewDir);
-float3 ComputePointLight(Light pointLight, MaterialData mat, float3 pos, float3 normalDir, float3 viewDir, float r2);
 float3 ComputeLighting(Light lights[MAX_LIGHTS], MaterialData mat, float3 pos, float3 normalDir, float3 viewDir, float4 shadowPos);
 float3 CalcByTBN(float3 normSample, float3 normalW, float3 tangentW);
 float2 EncodeSphereMap(float3 normal);
@@ -91,7 +90,7 @@ float3 ComputeLighting(Light lights[MAX_LIGHTS], MaterialData mat, float3 pos, f
         float shadowFactor[DIR_LIGHT_NUM] = { 1.0f, 1.0f, 1.0f };
         shadowFactor[0] = CalcCascadedShadowByMapped(shadowPos, g_shadow, csmPass, shadowSampler, currIdx, nextIdx, weight);
         [loop]
-        for (; i < 0; ++i){
+        for (; i < DIR_LIGHT_NUM; ++i){
             res += shadowFactor[i] * ComputeDirectionalLight(lights[i], mat, normalDir, viewDir);
         }
     #endif

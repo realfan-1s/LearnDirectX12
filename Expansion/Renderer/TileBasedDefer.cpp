@@ -109,10 +109,9 @@ void TileBasedDefer::Draw(ID3D12GraphicsCommandList* cmdList, const std::functio
 
 	cmdList->SetComputeRootSignature(m_pointRootSig.Get());
 	cmdList->SetPipelineState(m_pointPso.Get());
-	cmdList->SetName(L"Point Light Draw");
 	// DrawFunc需要传入gBuffer和cbPass
 	drawFunc(NULL);
-	constexpr UINT debug[] = { true, false, false, false };
+	constexpr UINT debug[] = { false, false, false, false };
 	cmdList->SetComputeRoot32BitConstants(4U, 4, &debug, 0);
 	cmdList->SetComputeRootDescriptorTable(2, m_bloomGpuUAV[0]);
 	cmdList->SetComputeRootShaderResourceView(3, m_pointLightUploader->GetResource()->GetGPUVirtualAddress());
@@ -123,7 +122,7 @@ void TileBasedDefer::Draw(ID3D12GraphicsCommandList* cmdList, const std::functio
 	ChangeState<D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_RENDER_TARGET>(cmdList, m_bloomRes.Get());
 }
 
-void TileBasedDefer::UpdatePointLights(const vector<std::shared_ptr<Light<Compute>>>& points)
+void TileBasedDefer::UpdatePointLights(const vector<std::shared_ptr<Light<Compute>>>& points) const
 {
 	for (UINT i = 0; i < pointLightNum; ++i)
 	{

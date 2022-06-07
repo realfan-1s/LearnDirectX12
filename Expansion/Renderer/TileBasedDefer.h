@@ -21,7 +21,7 @@ public:
 
 	void Update(const GameTimer& timer, const std::function<void(UINT, PassConstant&)>& updateFunc) override;
 	void Draw(ID3D12GraphicsCommandList* cmdList, const std::function<void(UINT)>& drawFunc) const override;
-	void UpdatePointLights(const vector<std::shared_ptr<Light<Compute>>>& points);
+	void UpdatePointLights(const vector<std::shared_ptr<Light<Compute>>>& points) const;
 private:
 	auto GetStaticSampler()->std::array<const CD3DX12_STATIC_SAMPLER_DESC, 6> const;
 	void InitDSV(D3D12_CPU_DESCRIPTOR_HANDLE _cpuDSV, UINT dsvSize) override;

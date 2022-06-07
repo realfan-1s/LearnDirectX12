@@ -382,13 +382,13 @@ void BoxApp::DrawLUT()
 		DrawRenderItems(m_commandList.Get(), m_renderItemLayers[static_cast<UINT>(BlendType::skybox)]);
 	});
 
-	m_TemporalAA->FirstDraw(m_commandList.Get(), GetDepthStencilView(), [&]()
-	{
-		m_commandList->SetPipelineState(LUTParams.Get());
-		DrawRenderItems(m_commandList.Get(), m_renderItemLayers[static_cast<UINT>(BlendType::opaque)]);
-		m_commandList->SetPipelineState(m_skybox->GetPSO());
-		DrawRenderItems(m_commandList.Get(), m_renderItemLayers[static_cast<UINT>(BlendType::skybox)]);
-	});
+	//m_TemporalAA->FirstDraw(m_commandList.Get(), GetDepthStencilView(), [&]()
+	//{
+	//	m_commandList->SetPipelineState(LUTParams.Get());
+	//	DrawRenderItems(m_commandList.Get(), m_renderItemLayers[static_cast<UINT>(BlendType::opaque)]);
+	//	m_commandList->SetPipelineState(m_skybox->GetPSO());
+	//	DrawRenderItems(m_commandList.Get(), m_renderItemLayers[static_cast<UINT>(BlendType::skybox)]);
+	//});
 
 	// 完成命令的记录
 	ThrowIfFailed(m_commandList->Close());
@@ -436,15 +436,18 @@ void BoxApp::CreateLights()
 		data.height = heightDist(randSeed);
 		data.moveSpeed = (moveDirection(randSeed) * 2 - 1) * moveSpeedDist(randSeed) / data.radius;
 		m_pointLightPos.emplace_back(std::make_unique<LightMoveParams>(data));
+		XMFLOAT3 worldPos = { data.radius * std::cos(data.angle), data.height, data.radius * std::sin(data.angle) };
+		XMVECTOR viewPos = XMVector3TransformCoord(XMLoadFloat3(&worldPos), m_camera->GetCurrViewXM());
 
 		LightInCompute params;
-		params.position = { data.radius * std::cos(data.angle), data.height, data.radius * std::sin(data.angle) };
+		XMStoreFloat3(&params.posV, viewPos);
 		params.fallOffEnd = attenuationDist(randSeed);
 		params.fallOffStart = attenuation * params.fallOffEnd;
 		params.strength = MathHelper::MathHelper::HueToRGB(hueDist(randSeed));
 		XMStoreFloat3(&params.strength, XMLoadFloat3(&params.strength) * intensityDist(randSeed));
 		m_computeLights.emplace_back(std::make_shared<Light<Compute>>(std::move(params)));
 	}
+	m_renderer->UpdatePointLights(m_computeLights);
 }
 
 void BoxApp::CreateDescriptorHeaps()
@@ -819,7 +822,6 @@ void BoxApp::UpdatePostProcess(const GameTimer& timer)
 	XMStoreFloat4x4(&ppp.vp_gpu, XMMatrixTranspose(m_camera->GetCurrVPXM()));
 	XMStoreFloat4x4(&ppp.nonjitteredVP_gpu, XMMatrixTranspose(m_camera->GetNonjitteredCurrVPXM()));
 	XMStoreFloat4x4(&ppp.previousVP_gpu, XMMatrixTranspose(m_camera->GetNonJitteredPreviousVPXM()));
-	XMStoreFloat4x4(&ppp.invView_gpu, XMMatrixTranspose(m_camera->GetInvViewXM()));
 	XMStoreFloat4x4(&ppp.viewPortRay_gpu, XMMatrixTranspose(m_camera->GetViewPortRayXM()));
 	ppp.nearZ_gpu = m_camera->m_nearPlane;
 	ppp.farZ_gpu = m_camera->m_farPlane;
@@ -837,11 +839,13 @@ void BoxApp::UpdateLightPos(const GameTimer& timer)
 	for (UINT i = 0; i < pointLightNum; ++i)
 	{
 		const auto& data = m_pointLightPos[i];
-		const float angle = data->angle + totalTime * data->moveSpeed;
+		const float angle = data->angle;
 		const auto& params = m_computeLights[i];
 		XMFLOAT3 pos = XMFLOAT3(data->radius * std::cos(angle), data->height, data->radius * std::sin(angle));
-		params->MovePos(pos);
+		XMVECTOR viewPos = XMVector3TransformCoord(XMLoadFloat3(&pos), m_camera->GetCurrViewXM());
+		params->MovePos(viewPos);
 	}
+	m_renderer->UpdatePointLights(m_computeLights);
 }
 
 void BoxApp::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const vector<RenderItem*>& items)

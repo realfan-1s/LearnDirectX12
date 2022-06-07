@@ -16,7 +16,7 @@ struct LightInPixel
 struct  LightInCompute {
 	DirectX::XMFLOAT3	strength;
 	float				fallOffStart;
-	DirectX::XMFLOAT3	position;
+	DirectX::XMFLOAT3	posV;
 	float				fallOffEnd;
 };
 
@@ -76,13 +76,17 @@ public:
 	Light& operator=(Light&&) = default;
 	void MovePos(const XMFLOAT3& pos) const
 	{
-		m_lightData->position = std::move(pos);
+		m_lightData->posV = std::move(pos);
+	}
+	void MovePos(const XMVECTOR& pos) const
+	{
+		XMStoreFloat3(&m_lightData->posV, pos);
 	}
 	const LightInCompute& GetData() const {
 		return *m_lightData.get();
 	}
 	DirectX::XMVECTOR GetLightPos() const {
-		return DirectX::XMLoadFloat3(&m_lightData->position);
+		return DirectX::XMLoadFloat3(&m_lightData->posV);
 	}
 protected:
 	std::shared_ptr<LightInCompute> m_lightData;

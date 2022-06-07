@@ -147,7 +147,7 @@ XMMATRIX Camera::GetNonJitteredPreviousVPXM() const
 }
 
 XMMATRIX Camera::GetInvProjXM() const {
-	return XMMatrixInverse(&XMMatrixDeterminant(GetCurrProjXM()), GetCurrProjXM());
+	return XMMatrixInverse(nullptr, GetCurrProjXM());
 }
 
 XMFLOAT4X4 Camera::GetInvProj() const {
@@ -157,7 +157,7 @@ XMFLOAT4X4 Camera::GetInvProj() const {
 }
 
 XMMATRIX Camera::GetInvViewXM() const {
-	return XMMatrixInverse(&XMMatrixDeterminant(GetCurrViewXM()), GetCurrViewXM());
+	return XMMatrixInverse(nullptr, GetCurrViewXM());
 }
 
 XMFLOAT4X4 Camera::GetInvView() const {
@@ -167,7 +167,7 @@ XMFLOAT4X4 Camera::GetInvView() const {
 }
 
 XMMATRIX Camera::GetInvVPXM() const {
-	return XMMatrixInverse(&XMMatrixDeterminant(GetCurrVPXM()), GetCurrVPXM());
+	return XMMatrixInverse(nullptr , GetCurrVPXM());
 }
 
 XMFLOAT4X4 Camera::GetInvVP() const {

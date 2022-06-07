@@ -64,7 +64,7 @@ public:
 		transformPack.emplace_back(std::make_shared<Transform>());
 	}
 	template <typename... Args, std::enable_if_t<sizeof...(Args) <= 3 && (is_same_v<decltype(Transform::m_scale), Args>, ...)>* = nullptr>
-	void SetParameters(UINT pos, Args&&... args) // (1) position (2) scale (3) rotation
+	void SetParameters(UINT pos, Args&&... args) // (1) posV (2) scale (3) rotation
 	{
 		const auto& form = transformPack[pos];
 		auto list = std::make_tuple(std::forward<Args>(args)...);
