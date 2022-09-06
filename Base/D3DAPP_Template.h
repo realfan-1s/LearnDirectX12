@@ -513,8 +513,8 @@ protected:
 		DXGI_SWAP_CHAIN_DESC chainDesc;
 		chainDesc.BufferDesc.Width = m_clientWidth;
 		chainDesc.BufferDesc.Height = m_clientHeight;
-		chainDesc.BufferDesc.RefreshRate.Numerator = 60;
-		chainDesc.BufferDesc.RefreshRate.Denominator = 1;
+		chainDesc.BufferDesc.RefreshRate.Numerator = 0;
+		chainDesc.BufferDesc.RefreshRate.Denominator = 0;
 		chainDesc.BufferDesc.Format = m_backBufferFormat;
 		chainDesc.BufferDesc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
 		chainDesc.BufferDesc.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;

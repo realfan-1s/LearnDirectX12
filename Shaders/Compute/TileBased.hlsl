@@ -93,7 +93,6 @@ void Defer(uint3 groupID : SV_GROUPID, uint3 dispathID : SV_DispatchThreadID, ui
 		bool inFrustum = true;
 		[unroll]
 		for (uint i = 0; i < 6; ++i) {
-			// TODO:计算有问题!
 			float dist = dot(frustumPlanes[i], float4(light.posV, 1.0f));
 			inFrustum = inFrustum && (dist >= -light.fallOfEnd);
 		}
@@ -168,7 +167,6 @@ void ConstructFrustumPlanes(uint2 groupID, float tileMinZ, float tileMaxZ, uint2
 }
 
 float3 ComputePointLight(PointLight light, MaterialData mat, float3 posV, float3 normalDir, float3 viewDir) {
-	//TODO: normalDir是否有问题
 	float3 lightDir = light.posV - posV;
 	float dist = length(lightDir);
 	lightDir = normalize(lightDir);
