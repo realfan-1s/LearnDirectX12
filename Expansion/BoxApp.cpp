@@ -895,7 +895,7 @@ void BoxApp::DrawPostProcess(ID3D12GraphicsCommandList* cmdList) {
 #if defined(DEBUG) || defined(_DEBUG)
 	ChangeState<D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_RENDER_TARGET>(cmdList, GetCurrentBackBuffer());
 	Debug::DebugMgr::instance().PrepareToDebug(cmdList, GetCurrentBackBufferView());
-	cmdList->SetGraphicsRootDescriptorTable(0, m_shadow->GetGpuSRV());
+	cmdList->SetGraphicsRootDescriptorTable(0, gBuffer->gBufferGpuSRV[0]);
 	DrawDebugItems(cmdList);
 	ChangeState<D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_DEST>(cmdList, GetCurrentBackBuffer());
 #endif
