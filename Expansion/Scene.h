@@ -12,9 +12,7 @@ private:
 	using float3 = DirectX::XMFLOAT3;
 public:
 	inline static AABB sceneBox{};
-	static constexpr Sphere sceneBound{
-		float3(0.0f, 0.0f, 0.0f), MathHelper::MathHelper::sqrt(10.0f * 10.0f + 15.0f * 15.0f)
-	};
+	inline static Sphere sceneBound{};
 };
 }
 

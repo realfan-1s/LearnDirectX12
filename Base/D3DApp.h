@@ -116,6 +116,6 @@ protected:
 	bool								m_msaaState			{ false };
 	UINT								m_msaaQuality		{ 0 };
 	D3D_DRIVER_TYPE						m_d3dDriverType		{ D3D_DRIVER_TYPE_HARDWARE };
-	DXGI_FORMAT							m_backBufferFormat	{ DXGI_FORMAT_R8G8B8A8_UNORM };
+	DXGI_FORMAT							m_backBufferFormat	{ DXGI_FORMAT_R8G8B8A8_UNORM_SRGB };
 	DXGI_FORMAT							m_depthStencilFormat{ DXGI_FORMAT_D24_UNORM_S8_UINT };
 };

@@ -291,7 +291,7 @@ std::tuple<XMMATRIX, XMVECTOR> CascadedShadow::RegisterLightViewXM() const
 	XMVECTOR lightUp = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 	XMMATRIX lightView = XMMatrixLookToLH(lightPos, m_mainLight->GetLightDir(), lightUp);
 
-	return { lightView, lightPos};
+	return { lightView, lightPos };
 }
 
 void CascadedShadow::CreateResources()

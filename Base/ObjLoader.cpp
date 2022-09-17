@@ -103,9 +103,13 @@ void ObjLoader::ProcessNode(aiNode* node, const aiScene* scene, std::string_view
 		if (i == 0)
 		{
 			Scene::sceneBox = std::move(box);
+			BoundingSphere::CreateFromBoundingBox(Scene::sceneBound, box);
 		} else
 		{
-			Scene::sceneBox.CreateMerged(Scene::sceneBox, Scene::sceneBox, box);
+			BoundingBox::CreateMerged(Scene::sceneBox, Scene::sceneBox, box);
+			BoundingSphere temp;
+			BoundingSphere::CreateFromBoundingBox(temp, box);
+			BoundingSphere::CreateMerged(Scene::sceneBound, Scene::sceneBound, temp);
 		}
 	}
 }

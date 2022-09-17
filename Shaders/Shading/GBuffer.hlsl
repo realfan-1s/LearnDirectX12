@@ -49,6 +49,7 @@ GBuffer Frag(v2f o)
 	// 可以尝试只传输MatIndex;这样可以大幅减少带宽
 	float4 sampleAlbedo = g_modelTexture[mat.diffuseIndex].Sample(anisotropicWrap, o.uv);
 	clip(sampleAlbedo.a - 0.1f);
+	sampleAlbedo = pow(sampleAlbedo, 2.2f);
 	buffer.gAlbedo = sampleAlbedo;
 
 	// TBN计算
